@@ -1,5 +1,5 @@
 ---
-title: Hexo的介绍
+title: Hexo介绍
 tags:
   - 测试
 ---
