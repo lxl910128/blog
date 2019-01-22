@@ -1,9 +1,9 @@
 ---
 title: 关于这个博客
-categories：
-  - JAVA
+categories:
+- JAVA
 tags:
-  - 动态代理
+- 动态代理
 ---
 # 动态代理介绍
 不再赘述，用代码再体现下

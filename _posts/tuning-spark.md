@@ -1,6 +1,6 @@
 ---
 title: Spark调优(v1.6.0)
-categories：
+categories:
   - spark
 tags:
   - 翻译

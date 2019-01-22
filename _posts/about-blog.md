@@ -1,7 +1,7 @@
 ---
 title: 关于这个博客
-categories：
-  - 随笔
+categories:
+- 随笔
 ---
 
 # 为什么写博客
