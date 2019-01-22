@@ -9,6 +9,8 @@ categories:
 Spark Launcher的主要有两个功能：1、通过JAVA程序启动Spark任务。2、监控Spark任务的运行情况，可以根据任务状态等的变法设置不同的执行逻辑同时提供主动停止Application的功能。  
 通常发布spark任务是通过shell运行spark-submit命令。但是在实际生产活动中存在业务直接启动Spark任务的情况。对于这种情况目前的做法是Java使用Runtime.getRuntime().exec(cmd)的方式运行spark-submit。这种方式虽然可以正常启动spark任务，收集spark-submit产生的日志，但是容错率低，不容易使用程序监控spark任务的状态，主动停止任务。对于这种情况可以使用Spark官方封装的任务启动器——Spark Launcher。虽然其底层也是通过JAVA启动子进程发布Spark任务，但是程序启动了监听spark application的线程，可以在任务状态或信息发生变化时触发相应的listenter。  
 本文首先用一个例子展示了如何用JAVA启动一个Spark任务，监控其运行状态以及如何主动停止任务。然后着重分析了启动任务的SparkLauncher、监控任务的ChildProcAppHandle、接收任务信息的LauncherServer、发送任务信息的LauncherBackend的代码逻辑。
+
+<!--more-->
 # 代码例子
 ```java
 public class TestLauncher {
