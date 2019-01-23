@@ -4,7 +4,7 @@ categories:
 - OAuth
 ---
 # 前言
-起因时最近在调整博客的评论系统，该是使用到了OAuth2.0协议，就顺便学习了一下并在这里给大家分享下心得体会。  
+起因时最近在调整博客的评论系统，该是使用到了OAuth2.0协议，就顺便学习了一下并在这里给大家分享下心得体会。本文会首先介绍OAuth2.0的相关知识，然后简单分析gitment评论系统是如何通过OAuth从git获取用户信息的。  
 本博客的评论系统使用的是gitment，通过配置就可实现评论功能，不用关心评论保存以及维护用户。该工具是基于github实现，操作时需要获取用户github的资源及权限，这就涉及到github API中的授权机制————OAuth协议。  
 <!--more-->
 维基百科告诉我们，**开放授权（OAuth）是一个开放标准，允许用户让第三方应用访问该用户在某一网站上存储的私密的资源（如照片，视频，联系人列表），而无需将用户名和密码提供给第三方应用。** 
@@ -117,8 +117,54 @@ C -->> A:5 Access Token Optional Refresh Token
 客户端证书授权指客户端以自己的名义，而不是以用户的名义，向"服务提供商"进行认证。严格地说，客户端模式并不属于OAuth框架所要解决的问题。在这种模式中，用户直接向客户端注册，客户端以自己的名义要求"服务提供商"提供服务，其实不存在授权问题。
 
 # 实战
-下面以hexo的gitmet评论系统为例介绍其如何通过OAuth获取github上的用户权限，从实现获取用户信息及代替用户发表isuues的。
+下面通过介绍gitmet评论系统如何通过OAuth获取用户在github上的资源权限，来体验下OAuth的整个流程。  
+gitmet的使用流程可以概述为1、在自己的账号上注册一个OAuthApp；2、将OAuthApp中的Client ID和Client Secret配置到next主题的配置文件中。3、博客页面使用评论功能。
+
 ## 1、注册Git OAuth
+在GitHub页面点击自己的头像打开菜单，点选“Settings”，然后在设置页面依次选择“Developer settings”--> “OAuth Apps” --> “New OAuth App”，进入创建OAuthApp的界面。
+![注册](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123213125.png)
+其中需要特别注意的是Authorization callback URL，这个就是“授权码模式”中1、3步中提到的重定向URL。Github接受的是客户端注册时预留重定向URL的方式。这个URL需要设为博客网页的域名，要不然会验证不通过。  
+注册完成会有如下图所示：
+![完成注册](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123214856.png)
+这一步主要目的就是告诉github我们要构建个第三方应用，这个应用会申请获取用户在github上存的资料。
+
+## 2、配置gitment
+我是用的hexo主题是next，所以在next的_config.yml中配置gitment.enable，gitment.github_user，gitment.github_repo，gitment.client_id，gitment.client_secret。如图
+![配置](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123220237.png)
+其中gitment.github_user是你github的用户名，gitment.github_repo需要是你git上存在repo，博客文章的评论都会存在这个repo的issues中。  
+然后重新生成一遍hexo就可以使用评论功能了。目前可以说你的博客或者博客中嵌入的gitment代码就组成了OAuth流程中第三方应用。 
+
+## 3、评论博客
+之前全都是前期准备，现在才到真正走OAuth验证流程的时候。岔一句，根据官方文档，github使用的是授权码授权模式。 
+现在登录博客，每篇文章中后面都会有评论的区域。点击登录会弹出git的认证页面，点击确定后完成验证返回微博页面。如下图
+![未登录](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/%E5%9B%BE20190123223943.png)
+![验证](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123223902.png)
+![登录后](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123224145.png)
+其实，上述一通操作已经完整走完了一遍OAuth验证。因为从用户的角度来看在授权码授权模式中你只需要在用户代理上确定授权就行了，其实就是图二中你在github认证页面（用户代理）输入账号密码的过程。剩下的过程对于用户来说都是透明的。  
+拿到授权后客户端（博客页面）就可以向git索要你的用户信息了，直观体现就是博客获取到了你github的头像，如图3所示。同时它也权限代替你在git上评论我的issues了。  
+
+## 4、客户端角度分析
+本小结我们从客户端的角度仔细分析下授权码模式的处理过程。  
+首先回顾上一节，其实在博客中点击登录时，就触发了整个流程的第一步客户端代理（博客页面）向认证服务器发送认证请求。可能有人会问，为什么页面也能当客户端呢？其实可以这么理解，博客页面中javaScript代码有实现客户端的逻辑，再加上浏览器这个代码运行容器就构成了客户端。  
+那么客户端向认证服务器发送了什么请求呢？我们可以用chrome开发者工具查看页面“登录”二字的逻辑得知。其页面逻辑如下图
+![登录](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123230652.png)
+不难看出登录二字其实是个a标签，它向git的认证服务器发送了一个请求，这对应于授权码模式的第一步中用户代理向认证服务器发送请求。从图中可以看出请求的主要参数有：
+* scope OAuth规范中的字段。表示第三方应用申请的用户资源范围，本次请求申请的范围是public_repo。github可申请的范围可以在[官方文档](https://developer.github.com/apps/building-oauth-apps/understanding-scopes-for-oauth-apps/)查看。
+* client_id OAuth规范中的字段。表示本应用在github注册的ID。
+* redirect_uri OAuth规范中的字段。表示用户验证通过后的回调URI，同时git还会验证该uri与我们注册OAuthApp时填的回调URI域名是否匹配。同时后续客户端申请访问token是也要与这个URI相匹配。
+* client_secret github认证独有。三方应用的秘钥，根据实验此值不填也行。
+
+在OAuth协议中，除了上述这些参数第一步还有以下几个参数：
+* response_type 认证类型，必填，授权码模式则此值应为“code”，我猜测由于github默认只支持授权码模式所以省略此参数。
+* state 随机字符串，可选，用于防止跨站点请求伪造攻击。github也是支持这个字段的只不过gitment没有使用这个参数。
+
+下面我们发一下这个请求，为了方便后续演示我们将回调URI改成localhost:2222/_getCode，并在本地启动相应的web服务接收git回调。同时将OAuthApp的回调URL修改为localhost:2222。修改后的URL如下所示：
+```
+https://github.com/login/oauth/authorize?scope=public_repo&redirect_uri=http%3A%2F%2Flocalhost:2222/_getCode&client_id=XXXXX&state=xyz
+```
+
+
+
 
 # 参考
 http://www.ruanyifeng.com/blog/2014/05/oauth_2_0.html
