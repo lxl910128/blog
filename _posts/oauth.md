@@ -37,17 +37,12 @@ OAuth的整体思路是在客户端与资源所有者之间设置一个授权层
 # 运行流程
 OAuth2.0的运行流程大体如下：
 ```sequence
-participant A as 客户端
-participant B as 用户
-participant C as 认证服务
-participant D as 资源服务
-
-A -->> B:1 Authorization Request
-B -->> A:2 Authorization Grant
-A -->> C:3 Authorization Grant
-C -->> A:4 Access Token
-A -->> D:5 Access Token
-D -->> A:6 Protected Resource
+客户端 -->> 用户:1 Authorization Request
+用户 -->> 客户端:2 Authorization Grant
+客户端 -->> 认证服务:3 Authorization Grant
+认证服务 -->> 客户端:4 Access Token
+客户端 -->> 资源服务:5 Access Token
+资源服务 -->> 客户端:6 Protected Resource
 ```
 上图描述了OAuth2.0中4个角色之间的交互。
 1. 客户端向用户申请授权。授权申请可以直接发给用户(如图所示)，但推荐将认证服务作为中介。
@@ -72,20 +67,14 @@ OAuth 2.0提供了4种方式完成用户授权客户端获取token。它们分�
 授权码模式是功能最完整、流程最严密的授权模式。它的特点就是通过客户端的后台服务器与认证服务器进行互动。整体流程如下图：
 
 ```sequence
-participant A as 客户端
-participant B as 用户代理
-participant C as 认证服务
-participant D as 用户
-
-
-A -->> B:1 Client Identifier & Redirection URI
-B -->> C:1 Client Identifier & Redirection URI
-B -->> D:2 User authenticates
-B -->> C:2 User authenticates
-C -->> B:3 Authorization Code
-B -->> A:3 Authorization Code
-A -->> C:4 Authorization Code & Redirection URI
-C -->> A:5 Access Token Optional Refresh Token
+客户端-->> 用户代理:1 Client Identifier & Redirection URI
+用户代理 -->> 认证服务:1 Client Identifier & Redirection URI
+用户代理 -->> 用户:2 User authenticates
+用户代理 -->> 认证服务:2 User authenticates
+认证服务 -->> 用户代理:3 Authorization Code
+用户代理 -->> 客户端3 Authorization Code
+客户端-->> 认证服务:4 Authorization Code & Redirection URI
+认证服务 -->> 客户端5 Access Token Optional Refresh Token
 ```
 注意，图中1，2，3的先被分成2部分是因为它们通过了用户代理。
 1. 用户访问客户端，后者将前者导向认证服务器。
@@ -201,7 +190,7 @@ https://github.com/login/oauth/authorize?scope=public_repo&redirect_uri=http%3A%
 # 总结
 OAuth2.0协议的内容还有很多，有兴趣的可以研究下[RFC6749](http://www.rfcreader.com/#rfc6749)。  
 
-其实在学习的过程中感觉OAuth的整个流程思路和单点登陆CAS的流程有点点像，有空再研究下点堤岸登陆吧。
+其实在学习的过程中感觉OAuth的整个流程思路和单点登陆CAS的流程有点点像，有空再研究下单点登陆吧。
 
 
 
