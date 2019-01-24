@@ -122,32 +122,44 @@ gitmet的使用流程可以概述为1、在自己的账号上注册一个OAuthAp
 
 ## 1、注册Git OAuth
 在GitHub页面点击自己的头像打开菜单，点选“Settings”，然后在设置页面依次选择“Developer settings”--> “OAuth Apps” --> “New OAuth App”，进入创建OAuthApp的界面。
-![注册](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123213125.png)
+![注册](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123213125.png)  
+
 其中需要特别注意的是Authorization callback URL，这个就是“授权码模式”中1、3步中提到的重定向URL。Github接受的是客户端注册时预留重定向URL的方式。这个URL需要设为博客网页的域名，要不然会验证不通过。  
 注册完成会有如下图所示：
-![完成注册](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123214856.png)
+
+![完成注册](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123214856.png)  
+
 这一步主要目的就是告诉github我们要构建个第三方应用，这个应用会申请获取用户在github上存的资料。
 
 ## 2、配置gitment
 我是用的hexo主题是next，所以在next的_config.yml中配置gitment.enable，gitment.github_user，gitment.github_repo，gitment.client_id，gitment.client_secret。如图
-![配置](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123220237.png)
+
+![配置](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123220237.png)  
+
 其中gitment.github_user是你github的用户名，gitment.github_repo需要是你git上存在repo，博客文章的评论都会存在这个repo的issues中。  
+
 然后重新生成一遍hexo就可以使用评论功能了。目前可以说你的博客或者博客中嵌入的gitment代码就组成了OAuth流程中第三方应用。 
 
 ## 3、评论博客
 之前全都是前期准备，现在才到真正走OAuth验证流程的时候。岔一句，根据官方文档，github使用的是授权码授权模式。 
-现在登录博客，每篇文章中后面都会有评论的区域。点击登录会弹出git的认证页面，点击确定后完成验证返回微博页面。如下图
+现在登录博客，每篇文章中后面都会有评论的区域。点击登录会弹出git的认证页面，点击确定后完成验证返回微博页面。如下图  
+
 ![未登录](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/%E5%9B%BE20190123223943.png)
+
 ![验证](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123223902.png)
-![登录后](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123224145.png)
+
+![登录后](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123224145.png)  
+
 其实，上述一通操作已经完整走完了一遍OAuth验证。因为从用户的角度来看在授权码授权模式中你只需要在用户代理上确定授权就行了，其实就是图二中你在github认证页面（用户代理）输入账号密码的过程。剩下的过程对于用户来说都是透明的。  
 拿到授权后客户端（博客页面）就可以向git索要你的用户信息了，直观体现就是博客获取到了你github的头像，如图3所示。同时它也权限代替你在git上评论我的issues了。  
 
 ## 4、客户端角度分析
 本小结我们从客户端的角度仔细分析下授权码模式的处理过程。  
 首先回顾上一节，其实在博客中点击登录时，就触发了整个流程的第一步客户端代理（博客页面）向认证服务器发送认证请求。可能有人会问，为什么页面也能当客户端呢？其实可以这么理解，博客页面中javaScript代码有实现客户端的逻辑，再加上浏览器这个代码运行容器就构成了客户端。  
-那么客户端向认证服务器发送了什么请求呢？我们可以用chrome开发者工具查看页面“登录”二字的逻辑得知。其页面逻辑如下图
-![登录](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123230652.png)
+那么客户端向认证服务器发送了什么请求呢？我们可以用chrome开发者工具查看页面“登录”二字的逻辑得知。其页面逻辑如下图  
+
+![登录](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123230652.png)  
+
 不难看出登录二字其实是个a标签，它向git的认证服务器发送了一个请求，这对应于授权码模式的第一步中用户代理向认证服务器发送请求。从图中可以看出请求的主要参数有：
 * scope OAuth规范中的字段。表示第三方应用申请的用户资源范围，本次请求申请的范围是public_repo。github可申请的范围可以在[官方文档](https://developer.github.com/apps/building-oauth-apps/understanding-scopes-for-oauth-apps/)查看。
 * client_id OAuth规范中的字段。表示本应用在github注册的ID。
@@ -159,9 +171,38 @@ gitmet的使用流程可以概述为1、在自己的账号上注册一个OAuthAp
 * state 随机字符串，可选，用于防止跨站点请求伪造攻击。github也是支持这个字段的只不过gitment没有使用这个参数。
 
 下面我们发一下这个请求，为了方便后续演示我们将回调URI改成localhost:2222/_getCode，并在本地启动相应的web服务接收git回调。同时将OAuthApp的回调URL修改为localhost:2222。修改后的URL如下所示：
+
 ```
 https://github.com/login/oauth/authorize?scope=public_repo&redirect_uri=http%3A%2F%2Flocalhost:2222/_getCode&client_id=XXXXX&state=xyz
 ```
+
+访问该地址就会进入到上文出现的github认证界面。这时流程的第一步已经完成，准备开始第二步。  
+![验证](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/20190123223902.png)  
+
+输入帐号密码点击登陆，如果密码没有问题本地启动的web程序就会收到git发送的回调。在本地web项目里我们通过继承spring的HandlerInterceptorAdapter拦截请求，观察回调内容。
+![git回调](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/101010.png)  
+
+从图中可以发现，回调是GET请求，URI中带了两个参数code和state。code可以理解为授权码模式第3步中授权码(Authorization Code)。此时流程的第2步git验证登陆以及第三步git回调返回授权码就结束了。
+
+接下来开始第4、5步客户端使用授权码获取访问token，此时我们使用client_id，client_secret和code。这里我们使用PostMan模拟请求。如图
+
+![获取token](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/103243.png)
+
+请忽略code值与上一步的不一样，那是因为在写文章时获取了多次code，而且在时间操作时发现git的callbackURI设置为localhost很有问题，后面换成了公网IP测试。  
+
+下面就可以使用token获取用户资料了，也很简单，这里还以POST展示。如图
+![用户资料](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/104127.png)
+
+图中就是登陆用户的基本信息，内容有很多有兴趣的同学可以查看git官方的开发手册。其中avatar_url字段是我用户的头像地址，这也是为什么登陆后博客评论可以显示用户头像的原因。  
+
+至此整个第三方应用通过OAuth获取用户资源的流程就走完了。
+
+
+# 总结
+OAuth2.0协议的内容还有很多，有兴趣的可以研究下[RFC6749](http://www.rfcreader.com/#rfc6749)。  
+
+其实在学习的过程中感觉OAuth的整个流程思路和单点登陆CAS的流程有点点像，有空再研究下点堤岸登陆吧。
+
 
 
 
