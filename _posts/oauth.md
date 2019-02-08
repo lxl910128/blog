@@ -4,18 +4,24 @@ categories:
 - OAuth
 ---
 # 前言
+<<<<<<< HEAD
 起因是最近在调整博客的评论系统，该是使用到了OAuth2.0协议，就顺便学习了一下并在这里给大家分享下心得体会。本文会首先介绍OAuth2.0的相关知识，然后简单分析gitment评论系统是如何通过OAuth从git获取用户信息的。  
 本博客的评论系统使用的是gitment，通过配置就可实现评论功能，不用关心评论保存以及维护用户。该工具是基于github实现，操作时需要获取用户github的资源及权限，这就涉及到github API中的授权机制————OAuth协议。  
 <!--more-->
+=======
+起因是最近在调整博客的评论系统，该是使用到了OAuth2.0协议，就顺便学习了一下并在这里给大家分享下心得体会。本文会首先介绍OAuth2.0的相关知识，然后简单介绍gitment如何使用，最后分析gitment是如何通过OAuth从git获取用户信息的。  
+本博客的评论系统使用的是gitment，通过简单配置就可实现评论功能，不用关心评论保存以及维护用户。该工具是基于github实现，操作时需要获取用户github的资源及权限，这就涉及到github API中的授权机制————OAuth协议。  
+>>>>>>> master
 维基百科告诉我们，**开放授权（OAuth）是一个开放标准，允许用户让第三方应用访问该用户在某一网站上存储的私密的资源（如照片，视频，联系人列表），而无需将用户名和密码提供给第三方应用。** 
+<!--more-->
 # 需求介绍
-以博客评论系统为例子，本博客使用的gitment评论系统本质上是将用户的评论保存到我在github上预先建立的issues中，从而达到博客不需要后端存储评论信息的效果。用户评论博文时必须让gitment获取到用户github的用户信息（头像，名字等），代替用户将他的评论发到我的issues下。如下图分别是博客中的评论系统以及实际issues中存储的用户评论。  
+gitment博客评论系统本质上是将用户的评论保存到我在github上预先建立的issues中，从而达到博客不需要后端存储评论信息的效果。用户评论博文时必须让gitment获取到用户github的用户信息（头像，名字等），代替用户将他的评论发到我的issues下。如下图分别是博客中的评论系统以及实际issues中存储的用户评论。  
 ![博客中的评论](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/140737.png)  
 ![issues的评论](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/140923.png)  
 
 问题是用户如何授权gitment让其可以从github上获取自己的用户信息以及代替自己在issues下写评论呢？  
 比较粗暴的方式是，用户告诉gitment自己github的帐号密码，这样gitment就可以作为用户登陆git获取信息发送评论了。但是这样做有以下几个严重缺点。
-1. gitment为了服务需要存储用户的帐号密码，这十分部安全；
+1. gitment为了服务需要存储用户的帐号密码，这十分不安全；
 2. 用户无法限制gitment在github中的权限，比如权限范围，有效时间；
 3. 用户只能修改密码才能收回权限，但是修改密码会导致其它第三方应用的权限都被收回；
 4. 如果有一个第三方应用被攻破，用户的帐号密码就会被泄露。
@@ -32,30 +38,20 @@ categories:
 * 代理（User Agent），一般是一个浏览器。
 
 # OAuth的思路
-OAuth的整体思路是在客户端与资源所有者之间设置一个授权层。客户端不能以用户的身份值接访问资源所有者，需要用户在授权服务那登记客户端有用访问权限，然后客户端再去授权服务处领取token，客户端拿着token才能从资源服务那获取用户资源。这个token有明确的权限范围和有效期。
+OAuth的整体思路是在客户端与资源所有者之间设置一个授权层。客户端不能以用户的身份值接访问资源所有者，需要用户在授权服务那登记客户端有访问权限，然后客户端再去授权服务处领取token，客户端拿着token才能从资源服务那获取用户资源。这个token有明确的权限范围和有效期。
 
 # 运行流程
 OAuth2.0的运行流程大体如下：
-```sequence
-participant A as 客户端
-participant B as 用户
-participant C as 认证服务
-participant D as 资源服务
 
-A -->> B:1 Authorization Request
-B -->> A:2 Authorization Grant
-A -->> C:3 Authorization Grant
-C -->> A:4 Access Token
-A -->> D:5 Access Token
-D -->> A:6 Protected Resource
-```
+![流程概述](http://www.ruanyifeng.com/blogimg/asset/2014/bg2014051203.png)
+
 上图描述了OAuth2.0中4个角色之间的交互。
-1. 客户端向用户申请授权。授权申请可以直接发给用户(如图所示)，但推荐将认证服务作为中介。
-2. 客户端收到授权凭证。
-3. 客户端使用授权凭证向认证服务申请token。
-4. 认证服务确认无误发送token。
-5. 客户端使用token向资源服务申请资源。
-6. 资源服务确认零盘无误向客户端发放资源。
+* (A)客户端向用户申请授权。授权申请可以直接发给用户(如图所示)，但推荐将认证服务作为中介。
+* (B)客户端收到授权凭证。
+* (C)客户端使用授权凭证向认证服务申请token。
+* (D)认证服务确认无误后发送token。
+* (E)客户端使用token向资源服务申请资源。
+* (F)资源服务确认token无误向客户端发放资源。
 
 不难看出，2和3两步十分重要，即用户如何给客户端授权以及客户端如何从认证服务处获取token。  
 OAuth 2.0提供了4种方式完成用户授权客户端获取token。它们分别是：
@@ -64,13 +60,14 @@ OAuth 2.0提供了4种方式完成用户授权客户端获取token。它们分�
 3. 用户密码授权（Resource Owner Password Credentials Grant）
 4. 客户端证书授权（Client Credentials Grant）
 
-其中第一种是最完善也时最官方推荐的方式，本文将着重介绍。
+其中第一种是最完善也时最官方推荐的方式。
 
 # 授权模式
 ## 授权码授权（Authorization Code Grant）
 授权码模式可以获取访问token和刷新token。由于这是基于HTTP重定向的流，因此客户端必须能够与资源所有者的用户代理（通常是Web浏览器）进行交互，并且能够从授权服务器接收HTTP请求（通过重定向）。  
 授权码模式是功能最完整、流程最严密的授权模式。它的特点就是通过客户端的后台服务器与认证服务器进行互动。整体流程如下图：
 
+<<<<<<< HEAD
 ```sequence
 participant A as 客户端
 participant B as 用户代理
@@ -93,6 +90,16 @@ C -->> A:5 Access Token Optional Refresh Token
 3. 假设用户授予访问权限，授权服务器使用先前提供的重定向URI（在请求1中或在客户端注册期间配置）将用户代理重定向回客户端。 重定向URI包括授权码和客户端先前提供的任何本地状态。
 4. 客户端使用上一步获取授权码以及获取授权码时使用的重定向URI，向认证服务器申请令牌。这一步是在客户端的后台的服务器上完成的，对用户不可见。
 5. 授权服务器对客户端进行身份验证，验证授权代码，并确保收到的重定向URI与步骤3中用于重定向客户端的URI相匹配。 如果有效，授权服务器返回访问token和刷新token。
+=======
+![授权码模式](http://www.ruanyifeng.com/blogimg/asset/2014/bg2014051204.png)
+
+注意，图中1，2，3的先被分成2部分是因为它们通过了用户代理。
+* (A)用户访问客户端，后者将前者导向认证服务器。
+* (B)用户在代理上选是否通过授权，一般情况下此时会出现A申请的资源。
+* (C)假设用户授予访问权限，授权服务器使用先前提供的重定向URI（在请求A中或在客户端注册期间配置）将用户代理重定向回客户端。 重定向URI包括授权码和客户端先前提供的任何本地状态。
+* (D)客户端使用上一步获取授权码以及获取授权码时使用的重定向URI，向认证服务器申请令牌。这一步是在客户端的后台的服务器上完成的，对用户不可见。
+* (E)授权服务器对客户端进行身份验证，验证授权代码，并确保收到的重定向URI与步骤3中用于重定向客户端的URI相匹配。 如果有效，授权服务器返回访问token和刷新token。
+>>>>>>> master
 
 
 刷新token的作用是客户的端访问token过期时，客户端可以用刷新token直接向认证服务换取新的访问token。
@@ -118,7 +125,10 @@ C -->> A:5 Access Token Optional Refresh Token
 
 # 实战
 下面通过介绍gitmet评论系统如何通过OAuth获取用户在github上的资源权限，来体验下OAuth的整个流程。  
-gitmet的使用流程可以概述为1、在自己的账号上注册一个OAuthApp；2、将OAuthApp中的Client ID和Client Secret配置到next主题的配置文件中。3、博客页面使用评论功能。
+gitment的使用流程可以概述为：
+1. 在自己的账号上注册一个OAuthApp；
+2. 将OAuthApp中的Client ID和Client Secret配置到next主题的配置文件中;
+3. 博客页面使用评论功能。
 
 ## 1、注册Git OAuth
 在GitHub页面点击自己的头像打开菜单，点选“Settings”，然后在设置页面依次选择“Developer settings”--> “OAuth Apps” --> “New OAuth App”，进入创建OAuthApp的界面。
@@ -170,10 +180,10 @@ gitmet的使用流程可以概述为1、在自己的账号上注册一个OAuthAp
 * response_type 认证类型，必填，授权码模式则此值应为“code”，我猜测由于github默认只支持授权码模式所以省略此参数。
 * state 随机字符串，可选，用于防止跨站点请求伪造攻击。github也是支持这个字段的只不过gitment没有使用这个参数。
 
-下面我们发一下这个请求，为了方便后续演示我们将回调URI改成localhost:2222/_getCode，并在本地启动相应的web服务接收git回调。同时将OAuthApp的回调URL修改为localhost:2222。修改后的URL如下所示：
+下面我们发一下这个请求，为了方便后续演示我们将回调URI改成118.24.236.xxx:2222/_getCode，此IP是我外网可访问的服务器IP，在该服务器上启动web服务接收git回调。同时将OAuthApp的回调URL修改为118.24.236.xxx:2222。修改后的URL如下所示：
 
 ```
-https://github.com/login/oauth/authorize?scope=public_repo&redirect_uri=http%3A%2F%2Flocalhost:2222/_getCode&client_id=XXXXX&state=xyz
+https://github.com/login/oauth/authorize?scope=public_repo&redirect_uri=http%3A%2F%2F118.24.236.xxx:2222/_getCode&client_id=XXXXX&state=xyz
 ```
 
 访问该地址就会进入到上文出现的github认证界面。这时流程的第一步已经完成，准备开始第二步。  
@@ -188,7 +198,7 @@ https://github.com/login/oauth/authorize?scope=public_repo&redirect_uri=http%3A%
 
 ![获取token](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/103243.png)
 
-请忽略code值与上一步的不一样，那是因为在写文章时获取了多次code，而且在时间操作时发现git的callbackURI设置为localhost很有问题，后面换成了公网IP测试。  
+请忽略code值与上一步的不一样，那是因为在写文章时获取了多次code。
 
 下面就可以使用token获取用户资料了，也很简单，这里还以POST展示。如图
 ![用户资料](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/104127.png)
@@ -201,7 +211,7 @@ https://github.com/login/oauth/authorize?scope=public_repo&redirect_uri=http%3A%
 # 总结
 OAuth2.0协议的内容还有很多，有兴趣的可以研究下[RFC6749](http://www.rfcreader.com/#rfc6749)。  
 
-其实在学习的过程中感觉OAuth的整个流程思路和单点登陆CAS的流程有点点像，有空再研究下点堤岸登陆吧。
+其实在学习的过程中感觉OAuth的整个流程思路和单点登陆CAS的流程有点点像，有空再研究下单点登陆吧。
 
 
 
