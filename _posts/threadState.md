@@ -65,9 +65,14 @@ Thread state for a terminated thread.The thread has completed execution.
 * wait()方法会释放CPU执行权和占有的锁。
 * sleep(long)方法仅释放CPU使用权，锁仍然占用；线程进入TIMED_WAITING状态，与yield相比，它会使线程较长时间得不到运行。
 * yield()方法仅释放CPU执行权，锁仍然占用，线程会进入Ready状态，会在短时间内再次执行。
-* wait和notify必须配套使用，即必须使用同一把锁调用；
-* wait和notify必须放在一个同步块中
-* 调用wait和notify的对象必须是他们所处同步块的锁对象。
+* wait和notify/notifyAll必须配套使用，即必须使用同一把锁调用；
+* wait和notify/notifyAll必须放在一个同步块中
+* 调用wait和notify/notifyAll的对象必须是他们所处同步块的锁对象。
+
+当线程执行wait()方法时候，会释放当前对象的锁，然后让出CPU，线程进入等待状态。  
+只有当线程A中notify/notifyAll() 被执行时候，才会唤醒其它一个或多个正处于等待状态的线程，然后线程A继续往下执行，直到执行完synchronized代码块的代码或是中途遇到wait()，再次释放锁。  
+也就是说，notify/notifyAll() 的执行只是唤醒沉睡的线程，而不会立即释放锁，锁的释放要看代码块的具体执行情况。所以在编程中，尽量在使用了notify/notifyAll() 后立即退出临界区，以唤醒其他线程。
+
 
 # 参考
 https://www.jianshu.com/p/a8abe097d4ed  
