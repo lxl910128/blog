@@ -35,13 +35,21 @@ object SimpleApp {
     
     sc.stop() 
 
-
   }
 }
 ```
-
 ## driver进程
-该进程是运行我们编写的spark应用的
+官方对driver进程的说明是:执行Application的main()方法的进程，并且负责创建SparkContext。  
+从上这就话可以看出2点，第一点，driver进程是负责真正执行我们spark程序的；第二点，driver需要创建sparkContext，换句话说driver需要负责spark计算的初始化工作。
+
+## clusterManager服务
+## worker节点
+## exector进程
+## task任务
+## Job对象
+## stage对象
+
+
 # 主要流程
 ## 任务初始化
 ## 任务流程
