@@ -79,9 +79,9 @@ Spark Standalone是Spark框架提供的便于其创建集群的一种集群管�
 据说Mesos运行Spakr集群的方式是官方推荐的，且很多公司都使用该模式。目前Mesos支持2种运行spark集群的方式：
 
 - Coarse-Grained（粗粒度模式）  
- 在此模式下每个Spark `executor`作为单独的一个Mesos task运行。`Executor`的大小通过以下参数调整:
+ 在此模式下每个Spark `executor`作为单独的一个Mesos task运行。`Executor`的大小通过以下参数调整:`spark.executor.memory`、`spark.executor.cores`、`spark.cores.max / spark.executor.cores`。当`application`启动时`Executor`会立马启动，直到达到设置的`spark.cores.max`。如果不设置 spark.cores.max，Spark 应用程序将消耗Mesos提供给它的所有资源，因此必须设置此变量，包括运行多个并发Spark应用程序。
 ## worker
-## exector进程
+## executor进程
 ## task任务
 ## Job对象
 ## stage对象
