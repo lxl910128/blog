@@ -53,7 +53,33 @@ object SimpleApp {
 
 DAGScheduler在更高层面实现了面向`stage`的调度机制。它会为每个`job`计算一个`stage`的DAG(有向无环图)，追踪RDD和stage的输出存在何处（内存或磁盘），并且找到一个消耗最小的计划来执行`job`(消耗最小即数据尽可能不被传输)。然后，DAGScheduler将`stages`作为`TaskSets`交给底层的`TaskScheduler`，后者负责在集群中运行这些`TaskSets`。
 
+其中`TaskScheduler`主要作用原文如下：
+
+> Low-level task scheduler interface, currently implemented exclusively by `org.apache.spark.scheduler.TaskSchedulerImpl`. This interface allows plugging in different task schedulers. Each TaskScheduler schedules tasks  for a single SparkContext. These schedulers get sets of tasks submitted to them from the DAGScheduler for each stage, and are responsible for sending the tasks to the cluster, running them, retrying if there are failures, and mitigating stragglers. They return events to the DAGScheduler.
+
+低级别task调度接口，基本是的实现类是`org.apache.spark.scheduler.TaskSchedulerImpl`。根据运行模式TaskScheduler有不同实现。每个`TaskScheduler`仅为一个`SparkContxt`提供`task`调度。`DAGScheduler`将`stage`转换为`taskSet`并将其交给`TaskSchedules`，`TaskSchedules`负责将`task`发送到集群并执行它们。如果有task失败则重试它们以减轻stragglers（缓慢节点）。最后`TaskScheduler`会把事件返回给`DAGScheduler`。
+
+`TaskSchedulerBackend`主要作用的原文如下：
+> A backend interface for scheduling systems that allows plugging in different ones under TaskSchedulerImpl. We assume a Mesos-like model where the application gets resource offers as  machines become available and can launch tasks on them.
+
+`TaskSchedulerBackend`是一个调度系统的后端接口，它允许在`TaskSchedulerImpl`下接入不同的系统(比如mesos 或 yarn)。这个系统应是一个类似Mesos的模型，可以从它那获取机器资源，并在上面运行`task`。
+
 ## clusterManager服务
+clusterManager是用于集群资源的外部服务，例如:Spark standalone manager, Mesos, YARN，这也是spark集群常用的部署方式，下面进行详细介绍。
+
+### Spark Standalone
+Spark Standalone是Spark框架提供的便于其创建集群的一种集群管理器。自带完整的服务，可单独部署到一个集群中，无序其他资源管理器。从一定程度上说，该模式是其它两种的基础。Spark为了快速开发先设计出standalone模式且不考虑服务（master/slave）的容错性，之后再开发响应的wrapper，将standalone模式下的服务原封不动的部署到资源管理系统yarn或者mesos上，由资源管理系统负责服务本身的容错。同时借助zookeeper实现了多master部署，可以有效避免单点故障。  
+
+将Spark standalone与MapReduce比较，会发现它们两个在架构上是完全一致的：
+
+- 都是由master/slaves服务组成的，且起初master均存在单点故障，后来均通过zookeeper解决（Apache MRv1的JobTracker仍存在单点问题，但CDH版本得到了解决）； 
+- 各个节点上的资源被抽象成粗粒度的slot，有多少slot就能同时运行多少task。不同的是，MapReduce将slot分为map slot和reduce slot，它们分别只能供Map Task和Reduce Task使用，而不能共享，这是MapReduce资源利率低效的原因之一，而Spark则更优化一些，它不区分slot类型，只有一种slot，可以供各种类型的Task使用，这种方式可以提高资源利用率，但是不够灵活，不能为不同类型的Task定制slot资源。总之，这两种方式各有优缺点。 
+
+### Mesos
+据说Mesos运行Spakr集群的方式是官方推荐的，且很多公司都使用该模式。目前Mesos支持2种运行spark集群的方式：
+
+- Coarse-Grained（粗粒度模式）  
+ 在此模式下每个Spark `executor`作为单独的一个Mesos task运行。`Executor`的大小通过以下参数调整:
 ## worker
 ## exector进程
 ## task任务
