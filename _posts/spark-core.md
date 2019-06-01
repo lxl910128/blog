@@ -80,6 +80,18 @@ Spark Standalone是Spark框架提供的便于其创建集群的一种集群管�
 
 - Coarse-Grained（粗粒度模式）  
  在此模式下每个Spark `executor`作为单独的一个Mesos task运行。`Executor`的大小通过以下参数调整:`spark.executor.memory`、`spark.executor.cores`、`spark.cores.max / spark.executor.cores`。当`application`启动时`Executor`会立马启动，直到达到设置的`spark.cores.max`。如果不设置 spark.cores.max，Spark 应用程序将消耗Mesos提供给它的所有资源，因此必须设置此变量，包括运行多个并发Spark应用程序。
+ 
+- Fine-Grained （细粒度模式）
+注意:Spark 2.X后细粒度模式已经被启用。请考虑使用`动态分配`替代本模式。   
+在细粒度模式下，Spark执行器中的每个Spark任务作为单独的Mesos任务运行。这允许Spark的多个实例(和其它框架??)以非常细的粒度来共享core(内核)，即随着应用不同阶段使用core的数量也不同，但是启动任务会带来额外开销。这种模式可能不适合低延迟要求，如交互式查询或者提供 web 请求。请注意，尽管细粒度的 Spark 任务在它们终止时将放弃内核，但是他们不会放弃内存，因为 JVM 不会将内存回馈给操作系统。执行器在空闲时也不会终止。  
+
+
+Mesos支持使用粗粒度模式的动态分配，该模式可以基于`Application`的信息调整`executor`的数量，即使用CPU的数量。在这种模式下，每个Spark应用的内存占用仍然时固定且独立的（由spark.executor.memory），但如果某个spark应用没有在某个机器上执行任务的话，那么应用会让出CPU，供其它应用使用。
+### Yarn
+Spark也可以运行在Apache Yarn上。由于yarn上的Container资源时不可以动态伸缩的，一旦Container启动，其可以使用的资源将不再变化。在Yarn模式下一般也会有`client`和`Cluster`两种模式。作者使用spark时一般采用`yarn-cluster`模式。
+
+### 
+
 ## worker
 ## executor进程
 ## task任务
@@ -89,7 +101,12 @@ Spark Standalone是Spark框架提供的便于其创建集群的一种集群管�
 ## TaskSet
 `TaskSet`包含完整且独立的任务。这些任务可基于集群中已有的数据即刻运行。（例如根据上一个`stage`输出文件）如果任务失败可能是因为数据不可用了。
 
+
 # 主要流程
 ## 任务初始化
 ## 任务流程
 # 总结
+
+# 引用
+spark官方文档V1.6
+spark doc
