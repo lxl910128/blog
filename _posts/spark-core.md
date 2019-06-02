@@ -86,20 +86,28 @@ Spark Standalone是Spark框架提供的便于其创建集群的一种集群管�
 在细粒度模式下，Spark执行器中的每个Spark任务作为单独的Mesos任务运行。这允许Spark的多个实例(和其它框架??)以非常细的粒度来共享core(内核)，即随着应用不同阶段使用core的数量也不同，但是启动任务会带来额外开销。这种模式可能不适合低延迟要求，如交互式查询或者提供 web 请求。请注意，尽管细粒度的 Spark 任务在它们终止时将放弃内核，但是他们不会放弃内存，因为 JVM 不会将内存回馈给操作系统。执行器在空闲时也不会终止。  
 
 
-Mesos支持使用粗粒度模式的动态分配，该模式可以基于`Application`的信息调整`executor`的数量，即使用CPU的数量。在这种模式下，每个Spark应用的内存占用仍然时固定且独立的（由spark.executor.memory），但如果某个spark应用没有在某个机器上执行任务的话，那么应用会让出CPU，供其它应用使用。
+Mesos支持使用粗粒度模式的动态分配，该模式可以基于`Application`的信息调整`executor`的数量，即使用CPU的数量。在这种模式下，每个Spark应用的内存占用仍然时固定且独立的（由spark.executor.memory），但如果某个spark应用没有在某个机器上执行任务的话，那么应用会让出CPU供其它应用使用。这种模式对集群中有大量不是很活跃应用的场景非常有效，例如：集群中有很多不同用户的 Spark shell session。但这种模式不适用于低延时的场景，因为当 Spark 应用需要使用 CPU 的时候，可能需要等待一段时间才能取得对 CPU 的使用权。要使用这种模式，只需要在 mesos://URL 上设置 spark.mesos.coarse 属性为 false 即可。
 ### Yarn
 Spark也可以运行在Apache Yarn上。由于yarn上的Container资源时不可以动态伸缩的，一旦Container启动，其可以使用的资源将不再变化。在Yarn模式下一般也会有`client`和`Cluster`两种模式。作者使用spark时一般采用`yarn-cluster`模式。
 
-### 
+## worker节点
+worker节点十分好理解，在集群中任何可以跑Application代码的节点都可以算作worker节点。
 
-## worker
 ## executor进程
+在worker节点上启动的用于执行Application的进程，该进程运行任务并将数据保存在内存和磁盘中。每个Application都有自己的executors。Executor需要维护一个线程池来运行tasks
+
 ## task任务
+将会发送给一个Executor的一组工作单元。
+
 ## Job对象
+由多个task组成的并行计算，这些`task`可以从Spark的`action`(例如 save,collect)操作中获取响应，你可以在`driver`的日志中看见这些术语。Job是提交给调度器的最顶级的工作项。例如当用户调用一个`action`例如`count()`,一个Job将会通过submitJob被提交。每个Job可能需要执行多个很多个stage来构建中间数据。
+
 ## stage对象
-`stage`的创建是通过在shuffle边界破坏RDD图来创建的。
+由1个Job分成的较小的task组成为`stage`，`stage`彼此间互相依赖，类俗语MapReduce中的Map和reduce阶段。`stage`的创建是通过在shuffle边界破坏RDD图来创建的。换种说法，`stage`是一组在`job`中用于计算中间结果的`task`，这些`task`在相同的RDD分区上计算相同的函数。`stage`按照`shuffle`边界划分，这个边界代表我们必须等待上一个`stage`对于全部数据都计算完成才能进行下一个`stage`。Spark将`stage`划分为两种类型：`ResultStage`,用于执行`action`操作的最终`stage`。`ShuffleMapStage`,会由shuffler操作输出映射文件。如果jobs重复使用相同的RDD，则`stage`会在多个job之间共享。
+
+
 ## TaskSet
-`TaskSet`包含完整且独立的任务。这些任务可基于集群中已有的数据即刻运行。（例如根据上一个`stage`输出文件）如果任务失败可能是因为数据不可用了。
+`TaskSet`包含完整且独立的任务。这些任务可基于集群中已有的数据即刻运行。（例如根据上一个`stage`输出）如果任务失败可能是因为数据不可用了。
 
 
 # 主要流程
