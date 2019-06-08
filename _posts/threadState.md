@@ -20,39 +20,39 @@ Thread state for a thread which has not yet started.
 ```
 线程还没有开始，即线程对象刚创建但还未调用start()方法。
 ## Runnable
-```
+>
 Thread state for a runnable thread. A thread in the runnable state is executing in the Java virtual machine but it may be waiting for other resources from the operating system such as processor.
-```
+.
 表示线程可运行。该状态表示线程正在JVM中运行，但是该线程也可能在等待操作系统资源例如CPU。
 ## Blocked
-```
+>
 Thread state for a thread blocked waiting for a monitor lock. A thread in the blocked state is waiting for a monitor lock to enter a synchronized block/method or reenter a synchronized block/method after calling ‘Object.wait’ .
-```
+>
 Blocked状态表示线程被阻塞等待一个监视锁（monitor lock）。线程在blocked状态就是等待一个监视锁(monitor lock)用以进入一个同步的代码块或方法或者在调用'Object.wait'后重新进入同步代码块或方法。
 ## Waiting
-```
+>
 Thread state for a waiting thread.A thread is in the waiting state due to calling one of the following methods:
 * 'Object.wait' with no timeout
 * 'Thread.join' with no timeout
 * 'LockSupport.park'
 A thread in the waiting state is waiting for another thread to perform a particular action.
 For example, a thread that has called Object.wait() on an object is waiting for another thread to call Object.notify() or Object.notifyAll() on that object. A thread that has called Thread.join() is waiting for a specified thread to terminate.
-```
+>
 该状态表示线程在等待其它线程。由于调用'Object.wait'(未设置超时)，'Thread.join'(未设置超时)，'LockSupport.park'线程处于Waiting状态。 
 线程处于Waiting状态就是等待其它线程执行特定方法。比如，一个线程调用了一个对象的Object.wait()，那么它就是在等待其它线程调用这个对象的Object.notify()或Object.notifyAll()。一个线程调用了另一个线程Thread.join()就是等待那个线程终止。
 ## Timed Waiting
-```
+>
 Thread state for a waiting thread with a specified waiting time. A thread is in timed waiting state due to calling one of the following methods with a specified positive waiting time:
 * 'Thread.sleep' with  timeout
 * 'Object.wait' with  timeout
 * 'LockSupport.parkNanos'
 * 'LockSupport.parkUntil'
-```
+>
 该状态表示等待其它线程但有超时时间。在调用了'Thread.sleep'，'Object.wait','LockSupport.parkNanos'，'LockSupport.parkUntil'并设置了超时间间，那么线程就进入了timedWaiting状态。
 ## Terminated
-```
+>
 Thread state for a terminated thread.The thread has completed execution.
-```
+>
 该状态表示线程终止，表示线程运行完成。
 
 # 状态间转换
