@@ -1,17 +1,15 @@
 ---
-title: spark核心流程分析
+title: spark主要概念概述
 categories:
 - spark
 tags:
-- 流程分析
+- spark概念
 ---
 # 概述
+本文主要介绍spark涉及的主要概念。这些概念包括：driver进程，ClusterManager服务，worker，Executor进程，Task任务，Application、Job、Stage。概念来源主要是官方文档以及源码文档的注释。介绍这些概念的目的主要是为了后续解读源码，剖析spark运行流程做准备。
+
+<!--more-->
 # 主要概念
-
-// 先以官方文档介绍各个角色
-// 分述各个角色
-// 介绍在 standalone、yarn-client、yarn-cluster中各个角色的差异
-
 Spark官方文档对集群的概述如下。Spark应用在集群上作为相互独立的进程组来运行，并通过main程序中的SparkContext来协调，称之为`driver`程序。
 具体来说，为了运行在集群上，SparkContext首先需要到`Cluster Manager`上获取计算资源（CPU/内存）。目前Cluster Manager主要有Spark自带的Standalone Cluster Manager、
 Mesos以及Yarn。SparkContext通过Cluster Manager可以知道哪些`Worker节点`有满足需求的计算资源，并在这些节点上启动用于计算、存储数据的`Executor`进程。
@@ -109,13 +107,8 @@ worker节点十分好理解，在集群中任何可以跑Application代码的节
 ## TaskSet
 `TaskSet`包含完整且独立的任务。这些任务可基于集群中已有的数据即刻运行。（例如根据上一个`stage`输出）如果任务失败可能是因为数据不可用了。
 
-
-# 主要流程
-整个Spark计算任务的运行，整体可以分为2个部分，分别是任务初始化和任务执行。
-
-## 任务初始化
-## 任务执行
-# 总结
+# 结束语
+本文粗略的介绍了spark设计的主要概念。本文会根据学习的深入不断更新。
 
 # 引用
 spark官方文档V1.6
