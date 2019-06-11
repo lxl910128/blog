@@ -173,7 +173,7 @@ class Main {
 
 通过上述代码我们可以清楚的看出，主函数使用第一个参数作为创建了不同的用于构造输出的builder。我们submit任务构建的builder是`SparkSubmitCommandBuilder`，实例化是传入了用户编写`spark-submit`脚本时自定义的参数。然后使用builder的`buildCommand`方法构建了最终运行的命令cmd以及运行命令的环境变量env。最后使用`prepareBashCommand`方法将cmd和env转化为输出list并打印，该list就是下一步要执行的命令。下面说说`new SparkSubmitCommandBuilder(args)`,`List<String> cmd = builder.buildCommand(env)`,`List<String> bashCmd = prepareBashCommand(cmd, env);`主要干了什么。  
 
-在实例化SparkSubmitCommandBuilder时，主要是使用`OptionParser`类判断传参（用户在使用`spark-submit`时的自定义参数）格式是否正确，并将这些参数保存在本类对应的变量或`sparkArgs`变量中(handle/handleExtraArgs方法)。实例化比较简单，重点是其`buildCommand`方法，该方法首先区分了pySpark和sparkR，而我们使用java编写spark最终调用的方式是`buildSparkSubmitCommand`,源码如下：
+在实例化SparkSubmitCommandBuilder时，主要是使用`OptionParser`类结构化传参（用户在使用`spark-submit`时的自定义参数）格式是否正确，并将这些参数保存在本类对应的变量或`sparkArgs`变量中(handle/handleExtraArgs方法)。实例化比较简单，重点是其`buildCommand`方法，该方法首先区分了pySpark和sparkR，而我们使用java编写spark最终调用的方式是`buildSparkSubmitCommand`,源码如下：
 ```java
 // 加载配置文件中的配置，查看spark-submit是执行spark Application的driver（client模式）还是用于向集群发布app（cluster模式）。如果是client模式，将会修改jvm的参数用driver的配置覆盖
 private List<String> buildSparkSubmitCommand(Map<String, String> env) throws IOException {
@@ -246,4 +246,118 @@ private List<String> buildSparkSubmitCommand(Map<String, String> env) throws IOE
 为了更好的学习本类的运行流程，可以借助Spark官方的测试用例`SparkSubmitCommandBuilderSuite`类中`testDriverCmdBuilder`方法。
  
 # org.apache.spark.deploy.SparkSubmit
-根据`org.apache.spark.launcher.Main`构建的运行命令，我们知道接下来运行的类是`org.apache.spark.deploy.SparkSubmit`，主要传参依然是我们使用`spark-submit`时定义的参数，
+根据`org.apache.spark.launcher.Main`构建的运行命令，我们得知接下来运行的类是`org.apache.spark.deploy.SparkSubmit`，主要传参依然是我们使用`spark-submit`时定义的参数。下面我们来看下`SparkSubmit`的源码：
+```scala
+  def main(args: Array[String]): Unit = {
+  // 标准化传参
+    val appArgs = new SparkSubmitArguments(args)
+    if (appArgs.verbose) {
+      // scalastyle:off println
+      printStream.println(appArgs)
+      // scalastyle:on println
+    }
+    appArgs.action match {
+    // 执行相应函数
+      case SparkSubmitAction.SUBMIT => submit(appArgs)
+      case SparkSubmitAction.KILL => kill(appArgs)
+      case SparkSubmitAction.REQUEST_STATUS => requestStatus(appArgs)
+    }
+  }
+```
+
+通过源码我们可以清晰的看出，本类主要就干了2件事：结构化传参，根据传参的action调用相应函数，我们本次主要关注的操作是`submit`。`SparkSubmitArguments`类的主要作用是解析并封装`spark-submit`脚本传入的参数。部分源码如下：
+```scala
+private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, String] = sys.env)
+  extends SparkSubmitArgumentsParser { //本质是继承SparkSubmitOptionParser
+  var master: String = null
+  var deployMode: String = null
+  var executorMemory: String = null
+  var executorCores: String = null
+  // ………………一堆属性………………
+
+  try {
+  // 结构化spark-submit中用户的传参传参
+    parse(args.asJava)
+  } catch {
+    case e: IllegalArgumentException =>
+      SparkSubmit.printErrorAndExit(e.getMessage())
+  }
+  // 从属性性文件读取内容填充sparkproperties:Map
+  mergeDefaultSparkProperties()
+  // 删除sparkproperties中key不是以"spark."开头的属性
+  ignoreNonSparkProperties()
+  // 使用`sparkProperties` 或 evn来填充缺少的必须参数。
+  loadEnvironmentArguments()
+  // 验证参数
+  validateArguments()
+  
+  // ………………一堆私有方法………………
+}
+```
+
+首先`SparkSubmitArguments`类是继承自`SparkSubmitArgumentsParser`，其又是`SparkSubmitOptionParser`的子类，而`SparkSubmitOptionParser`又派生了实例化`SparkSubmitCommandBuilder`时主要是使用的`OptionParser`。所以`SparkSubmitArguments`中调用的`parse()`和`SparkSubmitCommandBuilder`初始化时处理参数的方式其实是同一个，都是结构化`spark-submit`中用户的传参。
+接下来主要是构造`sparkproperties`这个Map对象，这个Map对象取值的**最高优先级是`spark-submit`中用户定义的`--conf`中的参数，然后读取`--properties-file`所指向文件中的配置，如果`spark-submit`中没配置`--properties-file`才会读取{SPARK_HOME}/conf/spark-defaults.conf中的配置**。这个逻辑和之前验证参数是读取配置的顺序相同。
+然后，spark会将`sparkproperties`中不是`spark.`开头的属性移除。**因此可知`--conf`以及spark配置文件中的配置都必须以`spark.`开头**。
+再下面就是使用`sparkProperties` 或 evn来填充缺少的重要参数。此时只有在参数为null时，才会首先从`sparkProperties`获取。如果还是为null只有极个别参数会在env中查找。该方法中的参数都比较重要必须掌握理解。
+最后是验证参数，根据action（SUBMIT/KILL/REQUEST_STATUS）的不同验证方式也略有不同。其实验证内容并不是很多，以submit操作为例，主要有`mainClass`不能少，如果是`yarn`模式管理集群则必须在环境变量中配置`HADOOP_CONF_DIR`和`YARN_CONF_DIR`  
+
+
+初始化参数后就是根据action调用相应的方法。下面我们着重看下`submit`方法主要干了啥。
+```scala
+private def submit(args: SparkSubmitArguments): Unit = {
+    val (childArgs, childClasspath, sysProps, childMainClass) = prepareSubmitEnvironment(args)
+
+    def doRunMain(): Unit = {
+      if (args.proxyUser != null) {
+        val proxyUser = UserGroupInformation.createProxyUser(args.proxyUser,
+          UserGroupInformation.getCurrentUser())
+        try {
+          proxyUser.doAs(new PrivilegedExceptionAction[Unit]() {
+            override def run(): Unit = {
+              runMain(childArgs, childClasspath, sysProps, childMainClass, args.verbose)
+            }
+          })
+        } catch {
+          case e: Exception =>
+            // Hadoop's AuthorizationException suppresses the exception's stack trace, which
+            // makes the message printed to the output by the JVM not very helpful. Instead,
+            // detect exceptions with empty stack traces here, and treat them differently.
+            if (e.getStackTrace().length == 0) {
+              // scalastyle:off println
+              printStream.println(s"ERROR: ${e.getClass().getName()}: ${e.getMessage()}")
+              // scalastyle:on println
+              exitFn(1)
+            } else {
+              throw e
+            }
+        }
+      } else {
+        runMain(childArgs, childClasspath, sysProps, childMainClass, args.verbose)
+      }
+    }
+
+     // In standalone cluster mode, there are two submission gateways:
+     //   (1) The traditional Akka gateway using o.a.s.deploy.Client as a wrapper
+     //   (2) The new REST-based gateway introduced in Spark 1.3
+     // The latter is the default behavior as of Spark 1.3, but Spark submit will fail over
+     // to use the legacy gateway if the master endpoint turns out to be not a REST server.
+    if (args.isStandaloneCluster && args.useRest) {
+      try {
+        // scalastyle:off println
+        printStream.println("Running Spark using the REST application submission protocol.")
+        // scalastyle:on println
+        doRunMain()
+      } catch {
+        // Fail over to use the legacy submission gateway
+        case e: SubmitRestConnectionException =>
+          printWarning(s"Master endpoint ${args.master} was not a REST server. " +
+            "Falling back to legacy submission gateway instead.")
+          args.useRest = false
+          submit(args)
+      }
+    // In all other modes, just run the main class as prepared
+    } else {
+      doRunMain()
+    }
+  }
+```
