@@ -304,7 +304,11 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
 
 初始化参数后就是根据action调用相应的方法。下面我们着重看下`submit`方法主要干了啥。
 ```scala
+// 用已给参数提交spark Application。
+// 本方法主要有2步，首先我们需要准备启动环境，主要是根据集群资源和发布模式为运行的`main`方法（用户编写，--class指向的方法）准备classpath，环境变量以及参数。
+// 第二步 我们用准备的环境调用 --class指向的子主类。
 private def submit(args: SparkSubmitArguments): Unit = {
+    // 准备启动Application的参数,主要包括: 传给Application的参数,classpath的list,系统属性的map,运行子类
     val (childArgs, childClasspath, sysProps, childMainClass) = prepareSubmitEnvironment(args)
 
     def doRunMain(): Unit = {
