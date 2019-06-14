@@ -6,8 +6,7 @@ tags:
 - spark启动
 ---
 # 前言
-本文主要是依据源码介绍spark启动的过程，即初始化`sparkContext`的过程。本文会从`spark-submit.sh`脚本开始，介绍到`sparkContext`初始化完成。在此之后就是借助`sparkContxt`执行各种算子得到计算结果的过程。本文使用的spark版本是1.6
-
+本文主要是依据源码介绍spark启动的过程，即初始化`sparkContext`的过程。本文会从`spark-submit.sh`脚本开始，介绍到`sparkContext`初始化完成。在此之后就是借助`sparkContxt`执行各种算子得到计算结果的过程。本文使用的spark版本是1.6，主要关注使用java\scala编写spark程序，忽略R语言或python编写应用时的逻辑。
 # 概述
 回想我们写spark程序的基本流程，首先我们会用scala写一个包含spark application的jar包。然后编写任务提交脚本，这个脚本一般是运行spark自带`spark-sumbit`脚本，并传入各种参数。这些参数主要包括运行该spark应用所需要的计算资源，应用jar包位置以及spark应用的`main()`方法。而我们写的spark应用程序一般会先创建用于配置运行环境的`sparkConf`对象，然后用该对象创建`sparkContext`对象。至此spark计算环境的初始化就算完成了。然后就是运行`sparkConext`读取数据，执行算子最后保存结果的过程了。  
 
@@ -305,63 +304,117 @@ private[deploy] class SparkSubmitArguments(args: Seq[String], env: Map[String, S
 初始化参数后就是根据action调用相应的方法。下面我们着重看下`submit`方法主要干了啥。
 ```scala
 // 用已给参数提交spark Application。
-// 本方法主要有2步，首先我们需要准备启动环境，主要是根据集群资源和发布模式为运行的`main`方法（用户编写，--class指向的方法）准备classpath，环境变量以及参数。
-// 第二步 我们用准备的环境调用 --class指向的子主类。
+// 本方法主要有2步，首先我们需要准备启动环境，主要是根据集群资源和发布模式为下一步运行的主方法准备classpath，环境变量以及参数。
+// 第二步 我们用准备的环境借助反射运行主方法。
 private def submit(args: SparkSubmitArguments): Unit = {
-    // 准备启动Application的参数,主要包括: 传给Application的参数,classpath的list,系统属性的map,运行子类
+    // 准备启动Application的参数,主要包括: 传给Application的参数(list),classpath的list,系统属性的map,运行子类
     val (childArgs, childClasspath, sysProps, childMainClass) = prepareSubmitEnvironment(args)
+    // 最终都时运行runMain方法()
+    // ………………
+      runMain(childArgs, childClasspath, sysProps, childMainClass, args.verbose)
+    
+  }
+```
 
-    def doRunMain(): Unit = {
-      if (args.proxyUser != null) {
-        val proxyUser = UserGroupInformation.createProxyUser(args.proxyUser,
-          UserGroupInformation.getCurrentUser())
-        try {
-          proxyUser.doAs(new PrivilegedExceptionAction[Unit]() {
-            override def run(): Unit = {
-              runMain(childArgs, childClasspath, sysProps, childMainClass, args.verbose)
-            }
-          })
-        } catch {
-          case e: Exception =>
-            // Hadoop's AuthorizationException suppresses the exception's stack trace, which
-            // makes the message printed to the output by the JVM not very helpful. Instead,
-            // detect exceptions with empty stack traces here, and treat them differently.
-            if (e.getStackTrace().length == 0) {
-              // scalastyle:off println
-              printStream.println(s"ERROR: ${e.getClass().getName()}: ${e.getMessage()}")
-              // scalastyle:on println
-              exitFn(1)
-            } else {
-              throw e
-            }
-        }
+根据源码，首先调用`prepareSubmitEnvironment`方法获得传给`Application`的参数，classpath，系统属性以及子方法的类名。在这个方法里首先确定了集群的管理模式（yarn/standalone/mesos/local）以及部署方式（client/cluster）。
+确定全部依赖Jar包。验证目前的模式是否是系统支持的，spark不支持以下模式：
+```scala
+(clusterManager, deployMode) match {
+      case (MESOS, CLUSTER) if args.isR =>
+        printErrorAndExit("Cluster deploy mode is currently not supported for R applications on Mesos clusters.")
+      case (STANDALONE, CLUSTER) if args.isPython =>
+        printErrorAndExit("Cluster deploy mode is currently not supported for python applications on standalone clusters.")
+      case (STANDALONE, CLUSTER) if args.isR =>
+        printErrorAndExit("Cluster deploy mode is currently not supported for R applications on standalone clusters.")
+      case (LOCAL, CLUSTER) =>
+        printErrorAndExit("Cluster deploy mode is not compatible with master \"local\"")
+      case (_, CLUSTER) if isShell(args.primaryResource) =>
+        printErrorAndExit("Cluster deploy mode is not applicable to Spark shells.")
+      case (_, CLUSTER) if isSqlShell(args.mainClass) =>
+        printErrorAndExit("Cluster deploy mode is not applicable to Spark SQL shell.")
+      case (_, CLUSTER) if isThriftServer(args.mainClass) =>
+        printErrorAndExit("Cluster deploy mode is not applicable to Spark Thrift server.")
+      case _ =>
+    }
+```
+接着就是比较重要的部分了，是针对部署模式和集群管理方式设置子方法的主类传参等。在client模式下子方法主类就是用户`--class`配置的类。如果是`standalone-cluster`模式，在这种模式下又分2种提交方式：1、子方法使用`org.apache.spark.deploy.Client`借助Akka提交; 2、子方法使用`org.apache.spark.deploy.rest.RestSubmissionClient`基于REST client的提交。默认情况下是使用第二种，但是当master节点不是REST服务，则会自动改用第一种模式。如果是yarn-cluster模式则子方法主类是`org.apache.spark.deploy.yarn.Client`。如果是mesos-cluster模式，子方法主类则为`org.apache.spark.deploy.rest.RestSubmissionClient`。这里还会将`spark.yarn.keytab`和`spark.yarn.principal`指向的密钥反在系统变量中，因此如果使用的hadoop有安全验证，着两个变量需要配置。
+在确认子方法主类的同时，还会配置子方法所需的传参，classpath，系统属性。最后就是将这些属性返回。  
+
+
+回到`submit`方法，如果设置了代理启动用户，则使用代理用户运行`runMain`方法，否则直接运行`runMain`方法。在standalone集群模式，如果master不是rest服务，则改用原来akka的提交方式。其实核心就是运行`runMain`方法，源码入下：
+```scala
+private def runMain(
+      childArgs: Seq[String],
+      childClasspath: Seq[String],
+      sysProps: Map[String, String],
+      childMainClass: String,
+      verbose: Boolean): Unit = {
+    // scalastyle:off println
+    if (verbose) {
+      printStream.println(s"Main class:\n$childMainClass")
+      printStream.println(s"Arguments:\n${childArgs.mkString("\n")}")
+      printStream.println(s"System properties:\n${sysProps.mkString("\n")}")
+      printStream.println(s"Classpath elements:\n${childClasspath.mkString("\n")}")
+      printStream.println("\n")
+    }
+    // scalastyle:on println
+    // 初始化classpath loader
+    val loader =
+      if (sysProps.getOrElse("spark.driver.userClassPathFirst", "false").toBoolean) {
+        new ChildFirstURLClassLoader(new Array[URL](0),
+          Thread.currentThread.getContextClassLoader)
       } else {
-        runMain(childArgs, childClasspath, sysProps, childMainClass, args.verbose)
+        new MutableURLClassLoader(new Array[URL](0),
+          Thread.currentThread.getContextClassLoader)
       }
+    Thread.currentThread.setContextClassLoader(loader)
+    // 加载子方法所需classpath
+    for (jar <- childClasspath) {
+      addJarToClasspath(jar, loader)
+    }
+    // 设置系统变量
+    for ((key, value) <- sysProps) {
+      System.setProperty(key, value)
     }
 
-     // In standalone cluster mode, there are two submission gateways:
-     //   (1) The traditional Akka gateway using o.a.s.deploy.Client as a wrapper
-     //   (2) The new REST-based gateway introduced in Spark 1.3
-     // The latter is the default behavior as of Spark 1.3, but Spark submit will fail over
-     // to use the legacy gateway if the master endpoint turns out to be not a REST server.
-    if (args.isStandaloneCluster && args.useRest) {
-      try {
-        // scalastyle:off println
-        printStream.println("Running Spark using the REST application submission protocol.")
-        // scalastyle:on println
-        doRunMain()
-      } catch {
-        // Fail over to use the legacy submission gateway
-        case e: SubmitRestConnectionException =>
-          printWarning(s"Master endpoint ${args.master} was not a REST server. " +
-            "Falling back to legacy submission gateway instead.")
-          args.useRest = false
-          submit(args)
-      }
-    // In all other modes, just run the main class as prepared
-    } else {
-      doRunMain()
+    var mainClass: Class[_] = null
+    // 找执行子类
+    try {
+      mainClass = Utils.classForName(childMainClass)
+    } catch {
+      case e: ClassNotFoundException =>
+        ……
+      case e: NoClassDefFoundError =>
+        ……
+    }
+
+    // SPARK-4170
+    if (classOf[scala.App].isAssignableFrom(mainClass)) {
+      printWarning("Subclasses of scala.App may not work correctly. Use a main() method instead.")
+    }
+    // 从子类中找到子方法，方法名必为`main`
+    val mainMethod = mainClass.getMethod("main", new Array[String](0).getClass)
+    if (!Modifier.isStatic(mainMethod.getModifiers)) {
+      throw new IllegalStateException("The main method in the given main class must be static")
+    }
+
+    // 异常处理
+    def findCause(t: Throwable): Throwable = t match {
+        ………
+    }
+
+    try {
+    // 借助代理执行子方法。
+      mainMethod.invoke(null, childArgs.toArray)
+    } catch {
+      case t: Throwable =>
+        …………
     }
   }
 ```
+该方法比较间单，主要是就加载classpath，设置系统属性，利用反射机制运行子方法。这里看出如果是client模式则该进程接下来运行的就是用户编写sparkApplication。此时该进程的角色就是driver了。而如果是cluster模式，则会调用对应集群的发布方法，在集群其它机器中启动spark Application。
+
+# Spark Application Main()
+终于到运行用户自己编写的spark代码的地方了。我们知道在我们开始一个sparkApplication时都要先使用`sparkConf`实例化`sparkContext`。`sparkConf`在实例化时会加载系统属性中所有"spark.*"。实例化后还可以在代码中增加spark配置而且添会替代已有配置，因此在sparkApplication中用sparkConf增加配置优先级时最高的。  
+
+接下来我们来重点研究下`SparkContext`。它是spark功能的主要切入点。通过它使driver与spark集群相联，并且它还负责创建RDD、累加器、广播变量。需要注意每个JVM只能实例化一个SparkContext。如果你要重新启动sparkContext，使用`stop()`停用之前的`sparkContext`。线面我们来看下sparkContext都做可里哪些工作。不知道为什么scala构造函数没有具体的函数体，感觉看起来还是挺费劲的。
