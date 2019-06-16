@@ -417,4 +417,283 @@ private def runMain(
 # Spark Application Main()
 终于到运行用户自己编写的spark代码的地方了。我们知道在我们开始一个sparkApplication时都要先使用`sparkConf`实例化`sparkContext`。`sparkConf`在实例化时会加载系统属性中所有"spark.*"。实例化后还可以在代码中增加spark配置而且添会替代已有配置，因此在sparkApplication中用sparkConf增加配置优先级时最高的。  
 
-接下来我们来重点研究下`SparkContext`。它是spark功能的主要切入点。通过它使driver与spark集群相联，并且它还负责创建RDD、累加器、广播变量。需要注意每个JVM只能实例化一个SparkContext。如果你要重新启动sparkContext，使用`stop()`停用之前的`sparkContext`。线面我们来看下sparkContext都做可里哪些工作。不知道为什么scala构造函数没有具体的函数体，感觉看起来还是挺费劲的。
+接下来我们来重点研究下`SparkContext`。它是spark功能的主要切入点。通过它使driver与spark集群相联，并且它还负责创建RDD、累加器、广播变量。需要注意每个JVM只能实例化一个SparkContext。如果你要重新启动sparkContext，使用`stop()`停用之前的`sparkContext`。下面我们来看下sparkContext在初始化时主要干的工作。
+```scala
+try {
+    // 获取sparkConf的参数并验证
+    _conf = config.clone()
+    _conf.validateSettings()
+    
+    if ((master == "yarn-cluster" || master == "yarn-standalone") &&
+            !_conf.contains("spark.yarn.app.id")) {
+          throw new SparkException("Detected yarn-cluster mode, but isn't running on a cluster. " +
+            "Deployment to YARN is not supported directly by SparkContext. Please use spark-submit.")
+        }
+    
+        if (_conf.getBoolean("spark.logConf", false)) {
+          logInfo("Spark configuration:\n" + _conf.toDebugString)
+        }
+    
+        // 设置 Spark driver host and port system properties
+        _conf.setIfMissing("spark.driver.host", Utils.localHostName())
+        _conf.setIfMissing("spark.driver.port", "0")   // 系统自动分配
+    
+        _conf.set("spark.executor.id", SparkContext.DRIVER_IDENTIFIER)
+
+    _jars = _conf.getOption("spark.jars").map(_.split(",")).map(_.filter(_.size != 0)).toSeq.flatten
+    _files = _conf.getOption("spark.files").map(_.split(",")).map(_.filter(_.size != 0))
+      .toSeq.flatten
+    // spark.eventLog.dir是记录Spark事件的基本目录，如果spark.eventLog.enabled为true。 在此基本目录中，Spark为每个应用程序创建一个子目录，并在此目录中记录特定于应用程序的事件。 用户可能希望将其设置为统一位置，如HDFS目录，以便历史记录服务器可以读取历史记录文件。
+    _eventLogDir =
+      if (isEventLogEnabled) {
+        val unresolvedDir = conf.get("spark.eventLog.dir", EventLoggingListener.DEFAULT_LOG_DIR)
+          .stripSuffix("/")
+        Some(Utils.resolveURI(unresolvedDir))
+      } else {
+        None
+      }
+
+    _eventLogCodec = {
+      val compress = _conf.getBoolean("spark.eventLog.compress", false)
+      if (compress && isEventLogEnabled) {
+        Some(CompressionCodec.getCodecName(_conf)).map(CompressionCodec.getShortName)
+      } else {
+        None
+      }
+    }
+
+    _conf.set("spark.externalBlockStore.folderName", externalBlockStoreFolderName)
+
+    if (master == "yarn-client") System.setProperty("SPARK_YARN_MODE", "true")
+
+    // 在创建sparkenv之前应该设置“jobProgressListener”，因为在创建“sparkenv”时，一些消息将被发送到“listenerbus”.
+    _jobProgressListener = new JobProgressListener(_conf)
+    listenerBus.addListener(jobProgressListener)
+
+    // 使用SparkEnv构建spark driver 的环境 (cache, map output tracker, etc)，并设置
+    // 该环境变量主要会关注driver的 host port，spark conf和 listenerBus对象
+    _env = createSparkEnv(_conf, isLocal, listenerBus)
+    SparkEnv.set(_env)
+    // 构建metadataCleaner，用于定期清理元数据（比如 老文件或 hashtable）
+    _metadataCleaner = new MetadataCleaner(MetadataCleanerType.SPARK_CONTEXT, this.cleanup, _conf)
+    // 构建SparkStatusTracker 用于监视job和stage的进度，生成状态报告
+    _statusTracker = new SparkStatusTracker(this)
+    // progressBar负责在console展示stage进度，它定期从'sc.statustracker'中轮询stage状态
+    _progressBar =
+      if (_conf.getBoolean("spark.ui.showConsoleProgress", true) && !log.isInfoEnabled) {
+        Some(new ConsoleProgressBar(this))
+      } else {
+        None
+      }
+      // 用于启动SparkUI
+    _ui =
+      if (conf.getBoolean("spark.ui.enabled", true)) {
+        Some(SparkUI.createLiveUI(this, _conf, listenerBus, _jobProgressListener,
+          _env.securityManager, appName, startTime = startTime))
+      } else {
+        // For tests, do not enable the UI
+        None
+      }
+      //在启动 taskscheduler钱绑定UI，以便将端口正确的连接到cluster manager
+    _ui.foreach(_.bind())
+    // 读hadoop配置
+    _hadoopConfiguration = SparkHadoopUtil.get.newConfiguration(_conf)
+
+    // 将依赖Jar包和file添加到SparkEnv中，以便启动executor时使用
+    if (jars != null) {
+      jars.foreach(addJar)
+    }
+    if (files != null) {
+      files.foreach(addFile)
+    }
+    // 配置executor内存
+    _executorMemory = _conf.getOption("spark.executor.memory")
+      .orElse(Option(System.getenv("SPARK_EXECUTOR_MEMORY")))
+      .orElse(Option(System.getenv("SPARK_MEM"))
+      .map(warnSparkMem))
+      .map(Utils.memoryStringToMb)
+      .getOrElse(1024)
+
+    // 构建executor的运行环境，主要是依赖
+    // Convert java options to env vars as a work around
+    // since we can't set env vars directly in sbt.
+    for { (envKey, propKey) <- Seq(("SPARK_TESTING", "spark.testing"))
+      value <- Option(System.getenv(envKey)).orElse(Option(System.getProperty(propKey)))} {
+      executorEnvs(envKey) = value
+    }
+    Option(System.getenv("SPARK_PREPEND_CLASSES")).foreach { v =>
+      executorEnvs("SPARK_PREPEND_CLASSES") = v
+    }
+    // The Mesos scheduler backend relies on this environment variable to set executor memory.
+    // TODO: Set this only in the Mesos scheduler.
+    executorEnvs("SPARK_EXECUTOR_MEMORY") = executorMemory + "m"
+    executorEnvs ++= _conf.getExecutorEnv
+    executorEnvs("SPARK_USER") = sparkUser
+
+    // 在创建scheduler前在SparkEnv中注册HeartbeatReceiver，是负责是executor向driver发送心跳包的
+    _heartbeatReceiver = env.rpcEnv.setupEndpoint(
+      HeartbeatReceiver.ENDPOINT_NAME, new HeartbeatReceiver(this))
+
+    // 创建 taskShceduler，schedulerBackend以及DAGScheduler，这是Sparkcontext最核心的功能
+    val (sched, ts) = SparkContext.createTaskScheduler(this, master)
+    _schedulerBackend = sched
+    _taskScheduler = ts
+    _dagScheduler = new DAGScheduler(this)
+    _heartbeatReceiver.ask[Boolean](TaskSchedulerIsSet)
+
+    // start TaskScheduler after taskScheduler sets DAGScheduler reference in DAGScheduler's
+    // constructor
+    _taskScheduler.start()
+
+    _applicationId = _taskScheduler.applicationId()
+    _applicationAttemptId = taskScheduler.applicationAttemptId()
+    _conf.set("spark.app.id", _applicationId)
+    _ui.foreach(_.setAppId(_applicationId))
+    _env.blockManager.initialize(_applicationId)
+
+    // The metrics system for Driver need to be set spark.app.id to app ID.
+    // So it should start after we get app ID from the task scheduler and set spark.app.id.
+    metricsSystem.start()
+    // Attach the driver metrics servlet handler to the web ui after the metrics system is started.
+    metricsSystem.getServletHandlers.foreach(handler => ui.foreach(_.attachHandler(handler)))
+
+    _eventLogger =
+      if (isEventLogEnabled) {
+        val logger =
+          new EventLoggingListener(_applicationId, _applicationAttemptId, _eventLogDir.get,
+            _conf, _hadoopConfiguration)
+        logger.start()
+        listenerBus.addListener(logger)
+        Some(logger)
+      } else {
+        None
+      }
+
+    // Optionally scale number of executors dynamically based on workload. Exposed for testing.
+    val dynamicAllocationEnabled = Utils.isDynamicAllocationEnabled(_conf)
+    if (!dynamicAllocationEnabled && _conf.getBoolean("spark.dynamicAllocation.enabled", false)) {
+      logWarning("Dynamic Allocation and num executors both set, thus dynamic allocation disabled.")
+    }
+
+    _executorAllocationManager =
+      if (dynamicAllocationEnabled) {
+        Some(new ExecutorAllocationManager(this, listenerBus, _conf))
+      } else {
+        None
+      }
+    _executorAllocationManager.foreach(_.start())
+
+    _cleaner =
+      if (_conf.getBoolean("spark.cleaner.referenceTracking", true)) {
+        Some(new ContextCleaner(this))
+      } else {
+        None
+      }
+    _cleaner.foreach(_.start())
+
+    setupAndStartListenerBus()
+    postEnvironmentUpdate()
+    postApplicationStart()
+
+    // Post init
+    _taskScheduler.postStartHook()
+    _env.metricsSystem.registerSource(_dagScheduler.metricsSource)
+    _env.metricsSystem.registerSource(new BlockManagerSource(_env.blockManager))
+    _executorAllocationManager.foreach { e =>
+      _env.metricsSystem.registerSource(e.executorAllocationManagerSource)
+    }
+
+    // Make sure the context is stopped if the user forgets about it. This avoids leaving
+    // unfinished event logs around after the JVM exits cleanly. It doesn't help if the JVM
+    // is killed, though.
+    _shutdownHookRef = ShutdownHookManager.addShutdownHook(
+      ShutdownHookManager.SPARK_CONTEXT_SHUTDOWN_PRIORITY) { () =>
+      logInfo("Invoking stop() from shutdown hook")
+      stop()
+    }
+  } catch {
+    ……………………
+  }
+```
+```scala
+private def createTaskScheduler(
+      sc: SparkContext,
+      master: String): (SchedulerBackend, TaskScheduler) = {
+    import SparkMasterRegex._
+
+    // When running locally, don't try to re-execute tasks on failure.
+    val MAX_LOCAL_TASK_FAILURES = 1
+
+    master match {
+      case "local" =>
+        val scheduler = new TaskSchedulerImpl(sc, MAX_LOCAL_TASK_FAILURES, isLocal = true)
+        val backend = new LocalBackend(sc.getConf, scheduler, 1)
+        scheduler.initialize(backend)
+        (backend, scheduler)
+      // local[*]
+      case LOCAL_N_REGEX(threads) =>
+        def localCpuCount: Int = Runtime.getRuntime.availableProcessors()
+        // local[*] estimates the number of cores on the machine; local[N] uses exactly N threads.
+        val threadCount = if (threads == "*") localCpuCount else threads.toInt
+        if (threadCount <= 0) {
+          throw new SparkException(s"Asked to run locally with $threadCount threads")
+        }
+        val scheduler = new TaskSchedulerImpl(sc, MAX_LOCAL_TASK_FAILURES, isLocal = true)
+        val backend = new LocalBackend(sc.getConf, scheduler, threadCount)
+        scheduler.initialize(backend)
+        (backend, scheduler)
+
+      case LOCAL_N_FAILURES_REGEX(threads, maxFailures) =>
+        ………………………………
+      // spark standalone
+      case SPARK_REGEX(sparkUrl) =>
+        ………………………………
+      
+      //local-cluster
+      case LOCAL_CLUSTER_REGEX(numSlaves, coresPerSlave, memoryPerSlave) =>
+       ……………………
+      // yarn
+      case "yarn-standalone" | "yarn-cluster" =>
+        if (master == "yarn-standalone") {
+          logWarning(
+            "\"yarn-standalone\" is deprecated as of Spark 1.0. Use \"yarn-cluster\" instead.")
+        }
+        val scheduler = try {
+          val clazz = Utils.classForName("org.apache.spark.scheduler.cluster.YarnClusterScheduler")
+          val cons = clazz.getConstructor(classOf[SparkContext])
+          cons.newInstance(sc).asInstanceOf[TaskSchedulerImpl]
+        } catch {
+          // TODO: Enumerate the exact reasons why it can fail
+          // But irrespective of it, it means we cannot proceed !
+          case e: Exception => {
+            throw new SparkException("YARN mode not available ?", e)
+          }
+        }
+        val backend = try {
+          val clazz =
+            Utils.classForName("org.apache.spark.scheduler.cluster.YarnClusterSchedulerBackend")
+          val cons = clazz.getConstructor(classOf[TaskSchedulerImpl], classOf[SparkContext])
+          cons.newInstance(scheduler, sc).asInstanceOf[CoarseGrainedSchedulerBackend]
+        } catch {
+          case e: Exception => {
+            throw new SparkException("YARN mode not available ?", e)
+          }
+        }
+        scheduler.initialize(backend)
+        (backend, scheduler)
+
+      case "yarn-client" =>
+        ……………………
+
+      case MESOS_REGEX(mesosUrl) =>
+       ……………………
+
+      case SIMR_REGEX(simrUrl) =>
+        ……………………
+      case zkUrl if zkUrl.startsWith("zk://") =>
+      ……………………
+      case _ =>
+        throw new SparkException("Could not parse Master URL: '" + master + "'")
+    }
+  }
+```
