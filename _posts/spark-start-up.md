@@ -1,5 +1,5 @@
 ---
-title: spark程序初始化
+title: spark源码走读————spark初始化
 categories:
 - spark
 tags:
@@ -515,8 +515,6 @@ try {
       .getOrElse(1024)
 
     // 构建executor的运行环境，主要是依赖
-    // Convert java options to env vars as a work around
-    // since we can't set env vars directly in sbt.
     for { (envKey, propKey) <- Seq(("SPARK_TESTING", "spark.testing"))
       value <- Option(System.getenv(envKey)).orElse(Option(System.getProperty(propKey)))} {
       executorEnvs(envKey) = value
@@ -541,10 +539,9 @@ try {
     _dagScheduler = new DAGScheduler(this)
     _heartbeatReceiver.ask[Boolean](TaskSchedulerIsSet)
 
-    // start TaskScheduler after taskScheduler sets DAGScheduler reference in DAGScheduler's
-    // constructor
+    // 在DAGScheduler添加了taskScheduler的引用后，taskScheduler才可以启动
     _taskScheduler.start()
-
+    // 根据taskScheduler设置各种参数
     _applicationId = _taskScheduler.applicationId()
     _applicationAttemptId = taskScheduler.applicationAttemptId()
     _conf.set("spark.app.id", _applicationId)
@@ -615,6 +612,7 @@ try {
     ……………………
   }
 ```
+在sparkContext的构造函数中，最重要的部分是就是初始化taskScheduler，taskSchedulerBackend以及DAGScheduler，以及启动taskScheduler。taskScheduler负责为sparkContext提供task调度。taskSchedulerBackend调度系统的后端接口与具体的集群交互。DAGScheduler主要负责task划分。首先来看`SparkContext.createTaskScheduler`方法是如何根据不同的运行模式创建`SchedulerBackend`和`TaskScheduler`的。这里我们着重`local`模式和`yarn-cluster`模式
 ```scala
 private def createTaskScheduler(
       sc: SparkContext,
@@ -626,14 +624,12 @@ private def createTaskScheduler(
 
     master match {
       case "local" =>
-        val scheduler = new TaskSchedulerImpl(sc, MAX_LOCAL_TASK_FAILURES, isLocal = true)
-        val backend = new LocalBackend(sc.getConf, scheduler, 1)
-        scheduler.initialize(backend)
-        (backend, scheduler)
+      // 等效于local[1]
+        ……………………………………
       // local[*]
       case LOCAL_N_REGEX(threads) =>
         def localCpuCount: Int = Runtime.getRuntime.availableProcessors()
-        // local[*] estimates the number of cores on the machine; local[N] uses exactly N threads.
+        // local[*] 表示根据cpu核数创建线程; local[N] 表示根据用户指定创建N个线程.
         val threadCount = if (threads == "*") localCpuCount else threads.toInt
         if (threadCount <= 0) {
           throw new SparkException(s"Asked to run locally with $threadCount threads")
@@ -697,3 +693,11 @@ private def createTaskScheduler(
     }
   }
 ```
+在使用local模式的情况下，spark`TaskSchedulerImpl`构建taskScheduler，使用`LocalBackend`创建taskBackend。其实通过源码我们可以发现除了在yarn模式下TaskScheduler使用的是`TaskSchedulerImpl`的子类，其它的都直接使用的是`TaskSchedulerImpl`，即使是mesos（不愧是亲儿子）。而taskSchedulerBackend主要是`SchedulerBackend`的子类。  
+
+`taskSchedulerImpl`，它通过操作底层schedulerBackend，可以达到对不同集群体调度task的效果。它也可以通过使用isLocal参数使用LocalBackend在本地模式下工作(使用线程代替节点上的进程)。`TaskScheduler`最主要的方法是`submitTasks`，提交一组TaskSet让集群运行。`taskScheduler`在初始化(包括调用initialize方法)时，主要的工作是保存SparkContext、schedulerBacked对象，初始化Poor（可调度的实体）、SchedulerBuilder(分FAIR(公平调度)/FIFO(先进先出，默认)两种模式，内部会构建可调度的树)。  
+
+接下来我们看下`LocalBackend`。如果需要executor，backend，master都运行在一个JVM上时可以使用LocalBackend。它处于`TaskSchedulerImpl`的下层，它用于在将task发布到一个本地的executor上。有机会会详细介绍Spark的通信机制。
+
+
+
