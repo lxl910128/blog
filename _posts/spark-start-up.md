@@ -470,11 +470,11 @@ try {
     _jobProgressListener = new JobProgressListener(_conf)
     listenerBus.addListener(jobProgressListener)
 
-    // 使用SparkEnv构建spark driver 的环境 (cache, map output tracker, etc)，并设置
+    // 1、构建spark 执行环境 SparkEnv，执行环境可区分为driver的或者executor的
     // 该环境变量主要会关注driver的 host port，spark conf和 listenerBus对象
     _env = createSparkEnv(_conf, isLocal, listenerBus)
     SparkEnv.set(_env)
-    // 构建metadataCleaner，用于定期清理元数据（比如 老文件或 hashtable）
+    // 2、构建metadataCleaner，用于定期清理元数据（比如 老文件或 hashtable）
     _metadataCleaner = new MetadataCleaner(MetadataCleanerType.SPARK_CONTEXT, this.cleanup, _conf)
     // 构建SparkStatusTracker 用于监视job和stage的进度，生成状态报告
     _statusTracker = new SparkStatusTracker(this)
@@ -485,7 +485,7 @@ try {
       } else {
         None
       }
-      // 用于启动SparkUI
+      // 3、用于启动SparkUI
     _ui =
       if (conf.getBoolean("spark.ui.enabled", true)) {
         Some(SparkUI.createLiveUI(this, _conf, listenerBus, _jobProgressListener,
@@ -532,7 +532,7 @@ try {
     _heartbeatReceiver = env.rpcEnv.setupEndpoint(
       HeartbeatReceiver.ENDPOINT_NAME, new HeartbeatReceiver(this))
 
-    // 创建 taskShceduler，schedulerBackend以及DAGScheduler，这是Sparkcontext最核心的功能
+    // 4、创建 taskShceduler，schedulerBackend以及DAGScheduler，这是Sparkcontext最核心的功能
     val (sched, ts) = SparkContext.createTaskScheduler(this, master)
     _schedulerBackend = sched
     _taskScheduler = ts
@@ -546,8 +546,10 @@ try {
     _applicationAttemptId = taskScheduler.applicationAttemptId()
     _conf.set("spark.app.id", _applicationId)
     _ui.foreach(_.setAppId(_applicationId))
+    // 5、启动 blockManager
     _env.blockManager.initialize(_applicationId)
 
+    // 6、启动测量系统 Metricsystem
     // The metrics system for Driver need to be set spark.app.id to app ID.
     // So it should start after we get app ID from the task scheduler and set spark.app.id.
     metricsSystem.start()
@@ -697,7 +699,11 @@ private def createTaskScheduler(
 
 `taskSchedulerImpl`，它通过操作底层schedulerBackend，可以达到对不同集群体调度task的效果。它也可以通过使用isLocal参数使用LocalBackend在本地模式下工作(使用线程代替节点上的进程)。`TaskScheduler`最主要的方法是`submitTasks`，提交一组TaskSet让集群运行。`taskScheduler`在初始化(包括调用initialize方法)时，主要的工作是保存SparkContext、schedulerBacked对象，初始化Poor（可调度的实体）、SchedulerBuilder(分FAIR(公平调度)/FIFO(先进先出，默认)两种模式，内部会构建可调度的树)。  
 
-接下来我们看下`LocalBackend`。如果需要executor，backend，master都运行在一个JVM上时可以使用LocalBackend。它处于`TaskSchedulerImpl`的下层，它用于在将task发布到一个本地的executor上。有机会会详细介绍Spark的通信机制。
+如果需要executor，backend，master都运行在一个JVM上时可以使用LocalBackend。它处于`TaskSchedulerImpl`的下层，它用于在将task发布到一个本地的executor上。有机会会详细介绍Spark的通信机制。  
+
+`DAGScheduler`十分重要，这里先仅简单介绍其初始化过程。它初始化主要是保存几个重要的变量`sparkContext`,`taskScheduler`,`sparkEnv`。
+
+在初始化完taskScheduler、taskBackend和DAGScheduler后。SparkContext会启动taskScheduler。
 
 
 
