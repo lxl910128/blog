@@ -12,13 +12,15 @@ tags:
 在开始前还需要说明的是，根据高人指点，上篇[文章](http://blog.gaiaproject.club/es-contains-search/)中提四种分词方案即将"abcd"分词为\["abcd","bcd","cd","d"\]，其实使用ES自带的`edge_ngram` tokenizer加`reverse` token filter就可实现相似的功能。即将"abcd"分词为\["a","ba","cba","dcba"\]，搜索时借助`prefix`查询就可以完成字符串包涵的搜索需求。这里还有一个需要注意的点是，使用`prefix`查询时需要自行将查询词逆序。当然也可以使用`match_phrase_prefix`使用`analyzer`配置只带`reverse` token filter的解析器对查询词进行反转。使用`match_phrase_prefix`还有个好出会自行根据出现频率排序。
 
 # 预备知识点
-1. 在es中一串字符串如果要被索引，需要经过对应的解析器`Analyzers`将其转化为`terms`和`tokens`。
+1. 在es中一串字符串如果要被索引，需要经过对应的解析器`Analyzers`将其转化出`terms`和`tokens`。
 2. `term`是搜索的最小单元
 3. `token`是一种在对文本进行分词时产生的对象，它包括term，term在文本中的位置，term长度等信息。
 4. es解析器在分词时有3个步骤。`character filters`、`tokenizer`和`token filters`
 5. `character filters`将原始文本作为字符流接收，可以对字符流进行增删改，最后将新的流输出。比如无差别将大写字母变小写并删除符号：'HELLO WORD! LOL' -> 'hello word lol'
 6. `tokenizer`接收`character filters`转化后的字符流然后将它切分成词输出`token`流。对于英文一般采用空格切分'hello word' -> \['hello','word','lol'\]
 7. `token filter`接收`token`流，并增删改tokens。\['hello','word','lol'\] -> \['hello','word','smile'\]
+
+举个例子，使用standard Analyzer对"The 2 QUICK Brown-Foxes jumped over the lazy dog's bone."进行解析时，首先会用Standard Tokenizer切分句子(该analyzer默认没有Character Filters)，
 
 # 插件介绍
 ES插件主要是用来自定义增强ES核心功能的。主要可以扩展的功能包括：
