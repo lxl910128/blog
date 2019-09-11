@@ -14,13 +14,98 @@ tags:
 # 预备知识点
 1. 在es中一串字符串如果要被索引，需要经过对应的解析器`Analyzers`将其转化出`terms`和`tokens`。
 2. `term`是搜索的最小单元
-3. `token`是一种在对文本进行分词时产生的对象，它包括term，term在文本中的位置，term长度等信息。
+3. `token`是一种在对文本进行分词时产生的对象，它包括term，term在文本中的位置，term起止位置等信息。
 4. es解析器在分词时有3个步骤。`character filters`、`tokenizer`和`token filters`
 5. `character filters`将原始文本作为字符流接收，可以对字符流进行增删改，最后将新的流输出。比如无差别将大写字母变小写并删除符号：'HELLO WORD! LOL' -> 'hello word lol'
 6. `tokenizer`接收`character filters`转化后的字符流然后将它切分成词输出`token`流。对于英文一般采用空格切分'hello word' -> \['hello','word','lol'\]
 7. `token filter`接收`token`流，并增删改tokens。\['hello','word','lol'\] -> \['hello','word','smile'\]
 
-举个例子，使用standard Analyzer对"The 2 QUICK Brown-Foxes jumped over the lazy dog's bone."进行解析时，首先会用Standard Tokenizer切分句子(该analyzer默认没有Character Filters)，
+举个例子，使用standard Analyzer对"The 2 QUICK Brown-Foxes jumped over the lazy dog's bone."进行解析时，首先会用Standard Tokenizer切分句子(该analyzer默认没有Character Filters)，然后使用(Lower Case Token Filter)将所有字符转化为小写。最后会生成如下这些Token。
+```json
+{
+    "tokens": [
+        {
+            "token": "the",
+            "start_offset": 0, //开始位置
+            "end_offset": 3,  //结束位置
+            "type": "<ALPHANUM>", //词类型
+            "position": 0 //偏移
+        },
+        {
+            "token": "2",
+            "start_offset": 4,
+            "end_offset": 5,
+            "type": "<NUM>",
+            "position": 1
+        },
+        {
+            "token": "quick",
+            "start_offset": 6,
+            "end_offset": 11,
+            "type": "<ALPHANUM>",
+            "position": 2
+        },
+        {
+            "token": "brown",
+            "start_offset": 12,
+            "end_offset": 17,
+            "type": "<ALPHANUM>",
+            "position": 3
+        },
+        {
+            "token": "foxes",
+            "start_offset": 18,
+            "end_offset": 23,
+            "type": "<ALPHANUM>",
+            "position": 4
+        },
+        {
+            "token": "jumped",
+            "start_offset": 24,
+            "end_offset": 30,
+            "type": "<ALPHANUM>",
+            "position": 5
+        },
+        {
+            "token": "over",
+            "start_offset": 31,
+            "end_offset": 35,
+            "type": "<ALPHANUM>",
+            "position": 6
+        },
+        {
+            "token": "the",
+            "start_offset": 36,
+            "end_offset": 39,
+            "type": "<ALPHANUM>",
+            "position": 7
+        },
+        {
+            "token": "lazy",
+            "start_offset": 40,
+            "end_offset": 44,
+            "type": "<ALPHANUM>",
+            "position": 8
+        },
+        {
+            "token": "dog's",
+            "start_offset": 45,
+            "end_offset": 50,
+            "type": "<ALPHANUM>",
+            "position": 9
+        },
+        {
+            "token": "bone",
+            "start_offset": 51,
+            "end_offset": 55,
+            "type": "<ALPHANUM>",
+            "position": 10
+        }
+    ]
+}
+```
+
+这些tokens包括主要包含以下这些Terms: [the, 2, quick, brown, foxes, jumped, over, the, lazy, dog's, bone ]
 
 # 插件介绍
 ES插件主要是用来自定义增强ES核心功能的。主要可以扩展的功能包括：
@@ -36,4 +121,8 @@ ES插件主要是用来自定义增强ES核心功能的。主要可以扩展的�
 * `NetworkPlugin`网络插件，扩展ES底层的网络传输功能。
 * `PersistentTaskPlugin`持续任务插件，用于注册持续任务的执行器。
 * `EnginePlugin`实体插件，创建index时，每个enginePlugin会被运行，引擎插件可以检查索引设置以确定是否为给定索引提供engine factory。
+
+# 插件开发
+## 官方例子
+
 
