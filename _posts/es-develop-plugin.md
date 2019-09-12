@@ -123,6 +123,25 @@ ES插件主要是用来自定义增强ES核心功能的。主要可以扩展的�
 * `EnginePlugin`实体插件，创建index时，每个enginePlugin会被运行，引擎插件可以检查索引设置以确定是否为给定索引提供engine factory。
 
 # 插件开发
-## 官方例子
+## 官方教程
+[官方教程](https://www.elastic.co/guide/en/elasticsearch/plugins/current/plugin-authors.html)对插件开发介绍的比较少。主要是告诉我们我们开发完成的插件应该以zip包的形式存在。在zip包的根目录种中最起码要包含我们开放的插件jar包以插件配置文件`plugin-descriptor.properties`。es是从配置文件认识自定义插件的。如果插件需要依赖其它jar包，则将其页放在zip根目录下即可。
 
 
+在插件配置文件`plugin-descriptor.properties`我们至少应该配置以下变量:
+* **description**：插件介绍
+* **version**：插件版本
+* **name**：插件名称
+* **classname**：要加载的插件类的全名。这个类需要继承`Plugin`类并实现插件类型接口，比如`ActionPlugin`、`AnalysisPlugin`等
+* **java.version**：插件适用的java版本
+* **elasticsearch.version**：插件适用的es版本
+
+
+在插件成功编译成zip包后，我们可以适用`bin/elasticsearch-plugin install file:///path/to/your/plugin`命令来安装插件，或这将zip包直接放在es的`plugins/`目录下。
+
+开发ES插件**总结**来说需要以下几步：
+1. 需要编写一个继承`Plugin`实现插件类型的类。
+2. 需要编写插件配置文件`plugin-descriptor.properties`。
+3. 将这配置文件和jar包打成1个zip包。
+
+## 项目初始化
+根据官方教程可知，最终我们需要得到一个还有配置文件和jar包的zip包。这里我们借助`maven`来实现插件的打包工作。
