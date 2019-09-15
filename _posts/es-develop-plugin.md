@@ -3,11 +3,11 @@ title: elasticsearch解析器插件开发介绍
 categories:
 - elasticsearch
 tags:
-- plugin
+- elasticsearch,es插件
 ---
 
 # 概要
-本文主要介绍如何开发ES解析器插件。开发的解析插件的核心功能是可以将词"abcd"分为\["abcd","bcd","cd","d"\]。此次本作者尝试以官方文档、源码及注释为主要学习材料，而不是学习他人总结的博客。使用此模式可以对开发插件的各步骤有更详细的理解，建议大家可以这样尝试一下。  
+本文主要介绍如何开发ES解析器插件。开发的解析插件的核心功能是可以将词"abcd"分为\["abcd","bcd","cd","d"\]。源码地址[在此](https://github.com/lxl910128/analysis-rockstone-plugin)。
 
 在开始前还需要说明的是，根据高人指点，上篇[文章](http://blog.gaiaproject.club/es-contains-search/)中提四种分词方案即将"abcd"分词为\["abcd","bcd","cd","d"\]，其实使用ES自带的`edge_ngram` tokenizer加`reverse` token filter就可实现相似的功能。即将"abcd"分词为\["a","ba","cba","dcba"\]，搜索时借助`prefix`查询就可以完成字符串包涵的搜索需求。这里还有一个需要注意的点是，使用`prefix`查询时需要自行将查询词逆序。当然也可以使用`match_phrase_prefix`使用`analyzer`配置只带`reverse` token filter的解析器对查询词进行反转。使用`match_phrase_prefix`还有个好出会自行根据出现频率排序。
 
@@ -123,9 +123,57 @@ ES插件主要是用来自定义增强ES核心功能的。主要可以扩展的�
 * `EnginePlugin`实体插件，创建index时，每个enginePlugin会被运行，引擎插件可以检查索引设置以确定是否为给定索引提供engine factory。
 
 # 插件开发
+下面以我自行开发的插件为基础介绍插件开发主要流程。
 ## 官方教程
-[官方教程](https://www.elastic.co/guide/en/elasticsearch/plugins/current/plugin-authors.html)对插件开发介绍的比较少。主要是告诉我们我们开发完成的插件应该以zip包的形式存在。在zip包的根目录种中最起码要包含我们开放的插件jar包以插件配置文件`plugin-descriptor.properties`。es是从配置文件认识自定义插件的。如果插件需要依赖其它jar包，则将其页放在zip根目录下即可。
-
+[官方教程](https://www.elastic.co/guide/en/elasticsearch/plugins/current/plugin-authors.html)对插件开发介绍的比较少。主要是告诉我们我们开发完成的插件应该以zip包的形式存在。在zip包的根目录种中最起码要包含我们开放的插件jar包以插件配置文件`plugin-descriptor.properties`。es是从配置文件认识自定义插件的。如果插件需要依赖其它jar包，则将其页放在zip根目录下即可。此次开发使用的说明文件如下。
+```yaml
+# Elasticsearch plugin descriptor file
+# This file must exist as 'plugin-descriptor.properties' at
+# the root directory of all plugins.
+#
+# A plugin can be 'site', 'jvm', or both.
+### example jvm plugin for "foo"
+#
+# foo.zip <-- zip file for the plugin, with this structure:
+#   <arbitrary name1>.jar <-- classes, resources, dependencies
+#   <arbitrary nameN>.jar <-- any number of jars
+#   plugin-descriptor.properties <-- example contents below:
+#
+# jvm=true
+# classname=foo.bar.BazPlugin
+# description=My cool plugin
+# version=2.0.0-rc1
+# elasticsearch.version=2.0
+# java.version=1.7
+#
+### mandatory elements for all plugins:
+#
+# 'description': simple summary of the plugin
+description=${project.description}
+#
+# 'version': plugin's version
+version=my first plugin. 
+#
+# 'name': the plugin name
+name=analysis-rockstone
+#
+# 'classname': the name of the class to load, fully-qualified.
+classname=org.elasticsearch.plugin.analysis.rockstone.AnalysisRockstonePlugin
+#
+# 'java.version' version of java the code is built against
+# use the system property java.specification.version
+# version string must be a sequence of nonnegative decimal integers
+# separated by "."'s and may have leading zeros
+java.version=1.8
+#
+# 'elasticsearch.version' version of elasticsearch compiled against
+# You will have to release a new version of the plugin for each new
+# elasticsearch release. This version is checked when the plugin
+# is loaded so Elasticsearch will refuse to start in the presence of
+# plugins with the incorrect elasticsearch.version.
+elasticsearch.version=7.1.1
+#
+```
 
 在插件配置文件`plugin-descriptor.properties`我们至少应该配置以下变量:
 * **description**：插件介绍
@@ -144,4 +192,130 @@ ES插件主要是用来自定义增强ES核心功能的。主要可以扩展的�
 3. 将这配置文件和jar包打成1个zip包。
 
 ## 项目初始化
-根据官方教程可知，最终我们需要得到一个还有配置文件和jar包的zip包。这里我们借助`maven`来实现插件的打包工作。
+根据官方教程可知，最终我们需要得到一个含有配置文件和jar包的zip包。这里我们借助`maven`及其`assembly`插件实现打包工作。pom.xml文件中关于`assembly`的配置如下
+```xml
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <version>2.6</version>
+            <configuration>
+                <appendAssemblyId>false</appendAssemblyId>
+                <!-- 将resources中的plugin-descriptor.properties放在根目录下 -->
+                <outputDirectory>${project.build.directory}/releases/</outputDirectory>
+                <descriptors><!--assembly使用的配置文件地址 -->
+                    <descriptor>${basedir}/src/main/assemblies/plugin.xml</descriptor>
+                </descriptors>
+            </configuration>
+            <executions>
+                <execution>
+                    <phase>package</phase>
+                    <goals>
+                        <goal>single</goal>
+                    </goals>
+                </execution>
+            </executions>
+        </plugin>
+        
+    </plugins>
+</build>
+```
+
+`maven-assembly`使用的配置文件plugin.xml如下所示
+```xml
+<?xml version="1.0"?>
+<assembly>
+    <id>tokenizer-rockstone</id>
+    <formats>   <!--打包方式-->
+        <format>zip</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+    <fileSets>
+        <fileSet> <!--配置要把什么文件打包到什么目录下-->
+            <directory>${project.basedir}/config</directory>
+            <outputDirectory>config</outputDirectory>
+        </fileSet>
+    </fileSets>
+    <files>
+        <file>
+            <source>${project.basedir}/src/main/resources/plugin-descriptor.properties</source>
+            <outputDirectory/>
+            <filtered>true</filtered>
+        </file>
+    </files>
+    <dependencySets><!--把相关的依赖包进行打包-->
+        <dependencySet>
+            <outputDirectory/>
+            <useProjectArtifact>true</useProjectArtifact>
+            <useTransitiveFiltering>true</useTransitiveFiltering>
+            <excludes>
+                <exclude>org.elasticsearch:elasticsearch</exclude>
+            </excludes>
+        </dependencySet>
+    </dependencySets>
+</assembly>
+```
+## 核心代码开发
+根据说明文件，插件的入口类是`org.elasticsearch.plugin.analysis.rockstone.AnalysisRockstonePlugin`，其内容如下
+```java
+
+public class AnalysisRockstonePlugin extends Plugin implements AnalysisPlugin {
+
+    @Override
+    public Map<String, AnalysisModule.AnalysisProvider<AnalyzerProvider<? extends Analyzer>>> getAnalyzers() {
+        return Collections.singletonMap("rockstone", RockstoneAnalyzerProvider::new);
+    }
+}
+```
+此次开发的解析器，需要继承`Plugin`类实现`AnalysisPlugin`接口，其它可实现的借口有`ActionPlugin`、`ClusterPlugin` 、`DiscoveryPlugin`、`IngestPlugin`、`MapperPlugin`、`NetworkPlugin`、`RepositoryPlugin`、`ScriptPlugin`、`SearchPlugin`、`ReloadablePlugin`。
+
+在`AnalysisPlugin`接口中我们主要需要实现的方法有:
+```java
+public interface AnalysisPlugin {
+    // 增加自定义CharFilters
+    default Map<String, AnalysisProvider<CharFilterFactory>> getCharFilters() {
+        return emptyMap();
+    }
+
+    // 增加自定义TokenFilters
+    default Map<String, AnalysisProvider<TokenFilterFactory>> getTokenFilters() {
+        return emptyMap();
+    }
+
+     // 增加自定义Tokenizers
+    default Map<String, AnalysisProvider<TokenizerFactory>> getTokenizers() {
+        return emptyMap();
+    }
+
+     // 增加自定义Analyzers
+    default Map<String, AnalysisProvider<AnalyzerProvider<? extends Analyzer>>> getAnalyzers() {
+        return emptyMap();
+    }
+}
+```
+在这里我们主要实现`getAnalyzers()`方法。该方法需要返回一个map，该map主要保存解析器名和提供解析器实现的映射。这里的注册方式参考了源生解析器的注册方式(`org.elasticsearch.indices.analysis.AnalysisModule`)。首先使用`RockstoneAnalyzerProvider`的构造方法实现接口`AnalysisModule.AnalysisProvider`的`T get()`方法，从而构造匿名类。`RockstoneAnalyzerProvider`类的实现主要参考`StandardAnalyzerProvider`如下所示
+```java
+
+public class RockstoneAnalyzerProvider extends AbstractIndexAnalyzerProvider<RockstoneAnalyzer> {
+
+    private final RockstoneAnalyzer analyzer;
+
+    public RockstoneAnalyzerProvider(IndexSettings indexSettings, Environment environment, String name, Settings settings) {
+        // settings 中可以获取创建 analyzer时json中的配置，indexSetting可以拿到索引的配置
+        super(indexSettings, name, settings);
+        analyzer = new RockstoneAnalyzer();
+    }
+
+    @Override
+    public RockstoneAnalyzer get() {
+        return analyzer;
+    }
+}
+```
+该类可以继承抽象类`AbstractIndexAnalyzerProvider`，实现`get()` 方法即可。也可以自行实现`AnalyzerProvider<? extends Analyzer>`接口。该接口最重要是需要`T get()`方法，该方法需要返回`Analyzer`的子类，我们核心的业务功能就写在该类中。`RockstoneAnalyzer'的实现如下
+```java
+
+```
+# 总结
+此次本作者尝试以官方文档、源码及注释为主要学习材料，而不是学习他人总结的博客。使用此模式可以对开发插件的各步骤有更详细的理解，建议大家可以这样尝试一下。  
