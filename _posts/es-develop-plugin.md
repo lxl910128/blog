@@ -300,7 +300,7 @@ public class RockstoneAnalyzerProvider extends AbstractIndexAnalyzerProvider<Roc
 该类可以继承抽象类`AbstractIndexAnalyzerProvider`，实现`get()` 方法即可。也可以自行实现`AnalyzerProvider<? extends Analyzer>`接口。该接口最重要是需要`T get()`方法，该方法需要返回`Analyzer`的子类，我们核心的业务功能就写在该类中。
 
 ### Analyzer
-`Analyzer`主要作用是调用被final修饰的`tokenStream`方法返回`TokenStream`实例，它表了解析器如何从text解析生成terms。而其子类需要做的主要是实现`TokenStreamComponents createComponents(String)`方法来规定适用的Tokenizer和TokenFilter。该方法是必须是实现的。同时还能通过实现`Reader initReader(String fieldName, Reader reader)`来增加character filters。正好对应ES解析器分词的3个步骤。`Analyzer`提供TokenStream的源码如下。
+`Analyzer`主要作用是调用被final修饰的`tokenStream`方法返回`TokenStream`实例，它表了解析器如何从text解析生成terms。`Analyzer`的子类需要做的主要是实现`TokenStreamComponents createComponents(String)`方法来规定适用的Tokenizer和TokenFilter。该方法是必须是实现的。同时还能通过实现`Reader initReader(String fieldName, Reader reader)`来增加character filters。正好对应ES解析器分词的3个步骤。`Analyzer`提供TokenStream的源码如下。
 ```java
   
   public final TokenStream tokenStream(final String fieldName, final String text) {
@@ -511,7 +511,7 @@ public class LowerCaseFilter extends TokenFilter {
 
 ```
 
-本次自定义插件未使用任何TokenFilter所以就不再列举了。
+本次自定义插件未使用任何TokenFilter所以就不再列举其它Filter了。
 
 
 ### 测试
@@ -540,4 +540,4 @@ public class LowerCaseFilter extends TokenFilter {
 门
 ```
 # 总结
-此次本作者尝试以官方文档、源码及注释为主要学习材料，而不是学习他人总结的博客。使用此模式可以对开发插件的各步骤有更详细的理解，建议大家可以这样尝试一下。
+此次本作者尝试以官方文档、源码及注释为主要学习材料，而不是学习他人总结的博客。优秀的开源组件都有详细的备注信息帮助开发理解代码，特别是可以扩展的代码以及核心代码。通过源码理解组件是个很好的学习方式，推荐大家尝试。
