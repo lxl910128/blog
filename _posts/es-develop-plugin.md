@@ -127,50 +127,33 @@ ES插件主要是用来自定义增强ES核心功能的。主要可以扩展的�
 ## 官方教程
 [官方教程](https://www.elastic.co/guide/en/elasticsearch/plugins/current/plugin-authors.html)对插件开发介绍的比较少。主要是告诉我们我们开发完成的插件应该以zip包的形式存在。在zip包的根目录种中最起码要包含我们开放的插件jar包以插件配置文件`plugin-descriptor.properties`。es是从配置文件认识自定义插件的。如果插件需要依赖其它jar包，则将其页放在zip根目录下即可。此次开发使用的说明文件如下。
 ```yaml
-# Elasticsearch plugin descriptor file
-# This file must exist as 'plugin-descriptor.properties' at
-# the root directory of all plugins.
-#
-# A plugin can be 'site', 'jvm', or both.
-### example jvm plugin for "foo"
+# Elasticsearch 插件说明文件,该文件必须命名为'plugin-descriptor.properties'并存放在插件根目录下
+### java插件目录结构
 #
 # foo.zip <-- zip file for the plugin, with this structure:
 #   <arbitrary name1>.jar <-- classes, resources, dependencies
 #   <arbitrary nameN>.jar <-- any number of jars
 #   plugin-descriptor.properties <-- example contents below:
 #
-# jvm=true
-# classname=foo.bar.BazPlugin
-# description=My cool plugin
-# version=2.0.0-rc1
-# elasticsearch.version=2.0
-# java.version=1.7
 #
-### mandatory elements for all plugins:
+### 插件必要的描述元素:
 #
-# 'description': simple summary of the plugin
+# 'description': 插件简述
 description=${project.description}
 #
-# 'version': plugin's version
+# 'version': 插件版本
 version=my first plugin. 
 #
-# 'name': the plugin name
+# 'name': 插件名称
 name=analysis-rockstone
 #
-# 'classname': the name of the class to load, fully-qualified.
+# 'classname': es需要加载类的全路径，该类需要继承Plugin类
 classname=org.elasticsearch.plugin.analysis.rockstone.AnalysisRockstonePlugin
 #
-# 'java.version' version of java the code is built against
-# use the system property java.specification.version
-# version string must be a sequence of nonnegative decimal integers
-# separated by "."'s and may have leading zeros
+# 'java.version'
 java.version=1.8
 #
-# 'elasticsearch.version' version of elasticsearch compiled against
-# You will have to release a new version of the plugin for each new
-# elasticsearch release. This version is checked when the plugin
-# is loaded so Elasticsearch will refuse to start in the presence of
-# plugins with the incorrect elasticsearch.version.
+# 'elasticsearch.version' 插件适用的es版本,安装插件时会验证,需要严格匹配
 elasticsearch.version=7.1.1
 #
 ```
@@ -257,6 +240,7 @@ elasticsearch.version=7.1.1
 </assembly>
 ```
 ## 核心代码开发
+### 解析器插件入口
 根据说明文件，插件的入口类是`org.elasticsearch.plugin.analysis.rockstone.AnalysisRockstonePlugin`，其内容如下
 ```java
 
@@ -313,9 +297,247 @@ public class RockstoneAnalyzerProvider extends AbstractIndexAnalyzerProvider<Roc
     }
 }
 ```
-该类可以继承抽象类`AbstractIndexAnalyzerProvider`，实现`get()` 方法即可。也可以自行实现`AnalyzerProvider<? extends Analyzer>`接口。该接口最重要是需要`T get()`方法，该方法需要返回`Analyzer`的子类，我们核心的业务功能就写在该类中。`RockstoneAnalyzer'的实现如下
+该类可以继承抽象类`AbstractIndexAnalyzerProvider`，实现`get()` 方法即可。也可以自行实现`AnalyzerProvider<? extends Analyzer>`接口。该接口最重要是需要`T get()`方法，该方法需要返回`Analyzer`的子类，我们核心的业务功能就写在该类中。
+
+### Analyzer
+`Analyzer`主要作用是调用被final修饰的`tokenStream`方法返回`TokenStream`实例，它表了解析器如何从text解析生成terms。而其子类需要做的主要是实现`TokenStreamComponents createComponents(String)`方法来规定适用的Tokenizer和TokenFilter。该方法是必须是实现的。同时还能通过实现`Reader initReader(String fieldName, Reader reader)`来增加character filters。正好对应ES解析器分词的3个步骤。`Analyzer`提供TokenStream的源码如下。
 ```java
+  
+  public final TokenStream tokenStream(final String fieldName, final String text) {
+    TokenStreamComponents components = reuseStrategy.getReusableComponents(this, fieldName);
+    @SuppressWarnings("resource") final ReusableStringReader strReader = 
+        (components == null || components.reusableStringReader == null) ?
+        new ReusableStringReader() : components.reusableStringReader;
+    strReader.setValue(text);
+    final Reader r = initReader(fieldName, strReader); // 调用用户定值character filters 其本质是返回一个Reader
+    if (components == null) {
+      components = createComponents(fieldName); //获取用户定义的 Tokenizer和TokenFilter
+      reuseStrategy.setReusableComponents(this, fieldName, components); 
+    }
+
+    components.setReader(r); // 默认是将reader通过Tokenizer::setReader赋值给分词器
+    components.reusableStringReader = strReader;
+    return components.getTokenStream();
+  }
+  
+```
+
+需要说明的是Tokenizer和TokenFilter都是TokenStream的子类，Tokenizer的输入时一个Reader，TokenFilter的输入是其它TokenStream。其嵌套关系决定了解析顺序。Tokenizer一般作为第一层。ES提供的`StandardAnalyzer`的`createComponents`方法是下如下
+```java
+  protected TokenStreamComponents createComponents(final String fieldName) {
+    final StandardTokenizer src = new StandardTokenizer();
+    src.setMaxTokenLength(maxTokenLength);
+    TokenStream tok = new LowerCaseFilter(src);
+    tok = new StopFilter(tok, stopwords);
+    return new TokenStreamComponents(r -> {
+      src.setMaxTokenLength(StandardAnalyzer.this.maxTokenLength);
+      src.setReader(r);
+    }, tok); // 构造TokenStreamComponents时传的lambda表达式会在 TokenStreamComponents实例调用setReader(r)时被运行
+  }
+```
+
+如官方文档所说该解析器使用了`StandardTokenizer`以及`LowerCaseFilter`和`StopFilter`。
+
+本次实现的解析器也是重写了`createComponents`和`initReader`方法。`createComponents`主要是使用了自定义的分词器，而在`initReader`中则使用了`StringReader`原因是默认的`Reader`没有实现`mark()`和`reset()`功能，代码如下。
+```java
+public class RockstoneAnalyzer extends Analyzer {
+    @Override
+    protected TokenStreamComponents createComponents(String fieldName) {
+        return new TokenStreamComponents(new RockstoneTokenzier());
+    }
+    @Override
+    protected Reader initReader(String fieldName, Reader reader) {
+        StringBuilder text = new StringBuilder();
+        try {
+            int read = reader.read();
+            while (read != -1) {
+                text.append((char) read);
+                read = reader.read();
+            }
+        } catch (IOException e) {
+        }
+        return new StringReader(text.toString());
+    }
+}
+```
+
+### TokenStream
+在聊Tokenizer和TokenFilter之前先说下它们的父类TokenStream。TokenStream是一个抽象类，它用来将文档的某个属性或查询字符串转为一组Token。`TokenStream`继承自`AttributeSource`，父类为`TokenStream`提供访问Token属性的功能。一个TokenStream的工作流程基本如下：
+1. 初始化`TokenStream`，从`AttributeSource`获取abttributes或向`AttributeSource`添加abttributes。
+2. 使用者调用`reset()`方法
+3. 使用者可以从`TokenStream`中取出Token的属性并且保存需要访问的Token属性
+4. 使用者调用`incrementToken()`，直到返回false前都可以获得Token属性
+5. 使用者调用`end()`执行结束`stream`的操作
+6. 使用者在使用完`TokenStream`后调用`close()`来释放资源
+
+通过对工作流的描述我们可以知道，在编写Tokenizer和TokenFilter时主要要复写的方法有`reset()`，`end()`，`close()`以及最重要的`incrementToken()`。`incrementToken()`方法返回bool值表示Token序列是否生成完。在调用一次该方法时，需要增量的生成1个Token(Tokenizer)或修改Token属性(TokenFilter)。
+
+### Tokenizer
+Tokenizer主要作用是使用传入的Reader生成Token，其子类在`bool incrementToken()`方法中需要生成Token属性。需要特别说明的是在生成新的Token时需要首先调用`AttributeSource#clearAttributes()`方法。下面我们看看ES对KeyWordTokenizer是如何实现的
+```java
+public final class KeywordTokenizer extends Tokenizer {
+  // 默认的每个keyword最大的长度 
+  public static final int DEFAULT_BUFFER_SIZE = 256; 
+
+  private boolean done = false;
+  private int finalOffset;
+  // Token的term属性
+  private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
+  // Toke的偏移量
+  private OffsetAttribute offsetAtt = addAttribute(OffsetAttribute.class);
+  
+  public KeywordTokenizer() {
+    this(DEFAULT_BUFFER_SIZE);
+  }
+
+  public KeywordTokenizer(int bufferSize) {
+    if (bufferSize > MAX_TOKEN_LENGTH_LIMIT || bufferSize <= 0) {
+      throw new IllegalArgumentException("maxTokenLen must be greater than 0 and less than " + MAX_TOKEN_LENGTH_LIMIT + " passed: " + bufferSize);
+    }
+    termAtt.resizeBuffer(bufferSize);
+  }
+
+  public KeywordTokenizer(AttributeFactory factory, int bufferSize) {
+    super(factory);
+    if (bufferSize > MAX_TOKEN_LENGTH_LIMIT || bufferSize <= 0) {
+      throw new IllegalArgumentException("maxTokenLen must be greater than 0 and less than " + MAX_TOKEN_LENGTH_LIMIT + " passed: " + bufferSize);
+    }
+    termAtt.resizeBuffer(bufferSize);
+  }
+  
+  @Override
+  public final boolean incrementToken() throws IOException {
+    if (!done) {
+      clearAttributes(); // 清空Token
+      done = true;
+      int upto = 0;
+      char[] buffer = termAtt.buffer();
+      while (true) {
+        final int length = input.read(buffer, upto, buffer.length-upto); // 从input中读取char保存在该Token的term中
+        if (length == -1) break;
+        upto += length;
+        if (upto == buffer.length)
+          buffer = termAtt.resizeBuffer(1+buffer.length);
+      }
+      termAtt.setLength(upto); // 设置token长度
+      finalOffset = correctOffset(upto);
+      offsetAtt.setOffset(correctOffset(0), finalOffset); // Token设置偏移量
+      return true;
+    }
+    return false;
+  }
+  
+  @Override
+  public final void end() throws IOException {
+    super.end();
+    // set final offset 
+    offsetAtt.setOffset(finalOffset, finalOffset);
+  }
+
+  @Override
+  public void reset() throws IOException {
+    super.reset();
+    this.done = false;
+  }
+}
+```
+由于keywordTokenizer就是把传入字符串原封不动作为1个term，所以在第一次while循环中会设置Token的CharTerm以及Offset属性然后返回false，接着第二次while循环，会因为input.read()返回-1跳出循环并返回false表示该字符串token处理结束。Token的属性除了term以及Offset属性，还可以设置很多其它属性，用的比较多的还有：`TypeAttribute`、 `PositionLengthAttribute`、 `PositionIncrementAttribute`。
+
+
+本次需要实现的Tokenizer主要需要实现的功能是将"abcd"切分成\["abcd","bcd","cd","d"\]，思路是借助StringReader的`mark()`方法依次标记每个字符，每次将mark位置到最后的字符作为一个Token。本次自定义的Tokenizer与KeywordTokenizer基本相同，主要区别是`incrementToken()`方法，具体实现如下：
+```java
+ 
+ @Override
+    public final boolean incrementToken() throws IOException {
+        clearAttributes();
+        int upto = 0;
+        char[] buffer = termAtt.buffer();
+        while (true) {
+            int first = input.read();
+            if (first == -1) break;
+            // 为了标记,先读一个
+            buffer[0] = (char) first;
+            input.mark(1);
+            upto++;
+            // 取出其余部分
+            final int length = input.read(buffer, upto, buffer.length - upto);
+            // 再正常读 如果读到值则长度累加
+            if (length != -1) {
+                upto += length;
+            }
+            if (upto == buffer.length)
+                buffer = termAtt.resizeBuffer(1 + buffer.length);
+        }
+        // 新增变量，在第一记录该字符串长度
+        if (length == -1) {
+            length = upto;
+        }
+        termAtt.setLength(upto);
+        // 设置偏移量
+        offsetAtt.setOffset(correctOffset(index), length);
+        index++;
+        // 将reader指针重置
+        input.reset();
+        if (length == (index - 1)) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+```
+
+### TokenFilter
+TokenFilter比较好说，它将另一个TokenStream作为输入并在初始化时保存。在incrementToken()中一般先调用上一个TokenStream的incrementToken()，然后根据业务逻辑修改上一个TokenStream生成的Token属性。下面是`LowerCaseFilter`的源码
+```java
+public class LowerCaseFilter extends TokenFilter {
+  private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
+  
+  public LowerCaseFilter(TokenStream in) {
+      // 用另一个TokenStream实例化
+      // 实例化时会将AttributeSource的主要变量于本实例绑定，这样也就可以直接用上一个TokenStream生成Token属性了
+    super(in);
+  }
+  
+  @Override
+  public final boolean incrementToken() throws IOException {
+    if (input.incrementToken()) {
+        // 直接把charTerm属性转为小写
+      CharacterUtils.toLowerCase(termAtt.buffer(), 0, termAtt.length());
+      return true;
+    } else
+      return false;
+  }
+}
 
 ```
+
+本次自定义插件未使用任何TokenFilter所以就不再列举了。
+
+
+### 测试
+```java
+   @Test
+    public void testAnalyzer() throws Exception {
+        RockstoneAnalyzer analyzer = new RockstoneAnalyzer();
+        TokenStream ts = analyzer.tokenStream("text", "我爱北京 天安门"); // 获取自定义的TokenStream
+        CharTermAttribute term = ts.addAttribute(CharTermAttribute.class); // 由于属性已近初始化所以直接获取CharTermAttribute的引用
+        ts.reset();
+        while (ts.incrementToken()) {
+            System.out.println(term.toString());
+        }
+        ts.end();
+        ts.close();
+    }
+    
+--------- 输出 ---------
+我爱北京 天安门
+爱北京 天安门
+北京 天安门
+京 天安门
+ 天安门
+天安门
+安门
+门
+```
 # 总结
-此次本作者尝试以官方文档、源码及注释为主要学习材料，而不是学习他人总结的博客。使用此模式可以对开发插件的各步骤有更详细的理解，建议大家可以这样尝试一下。  
+此次本作者尝试以官方文档、源码及注释为主要学习材料，而不是学习他人总结的博客。使用此模式可以对开发插件的各步骤有更详细的理解，建议大家可以这样尝试一下。
