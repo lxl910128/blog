@@ -3,6 +3,8 @@ title: elasticsearch解析器插件开发介绍
 categories:
 - elasticsearch
 tags:
+- elasticsearch,插件
+keywords:
 - elasticsearch,插件,analyzer,chartFilter,Tokenzier,TokenFilter
 ---
 
