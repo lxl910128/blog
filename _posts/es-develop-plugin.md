@@ -3,11 +3,13 @@ title: elasticsearch解析器插件开发介绍
 categories:
 - elasticsearch
 tags:
-- elasticsearch,es插件
+- elasticsearch,插件
+keywords:
+- elasticsearch,插件,analyzer,chartFilter,Tokenzier,TokenFilter
 ---
 
 # 概要
-本文主要介绍如何开发ES解析器插件。开发的解析插件的核心功能是可以将词"abcd"分为\["abcd","bcd","cd","d"\]。源码地址[在此](https://github.com/lxl910128/analysis-rockstone-plugin)。
+本文主要介绍如何开发ES解析器插件。在文章中会介绍一个自定义解析插件的主要过程。该插件的核心功能是可以将词"abcd"分为\["abcd","bcd","cd","d"\]。源码地址[在此](https://github.com/lxl910128/analysis-rockstone-plugin)。由于本次开发的是解析器插件，因此本文会顺带介绍ES解析器的基本原理，核心功能`chartFilter,Tokenzier,TokenFilter`如何实现。
 
 在开始前还需要说明的是，根据高人指点，上篇[文章](http://blog.gaiaproject.club/es-contains-search/)中提四种分词方案即将"abcd"分词为\["abcd","bcd","cd","d"\]，其实使用ES自带的`edge_ngram` tokenizer加`reverse` token filter就可实现相似的功能。即将"abcd"分词为\["a","ba","cba","dcba"\]，搜索时借助`prefix`查询就可以完成字符串包涵的搜索需求。这里还有一个需要注意的点是，使用`prefix`查询时需要自行将查询词逆序。当然也可以使用`match_phrase_prefix`使用`analyzer`配置只带`reverse` token filter的解析器对查询词进行反转。使用`match_phrase_prefix`还有个好出会自行根据出现频率排序。
 
@@ -123,9 +125,9 @@ ES插件主要是用来自定义增强ES核心功能的。主要可以扩展的�
 * `EnginePlugin`实体插件，创建index时，每个enginePlugin会被运行，引擎插件可以检查索引设置以确定是否为给定索引提供engine factory。
 
 # 插件开发
-下面以我自行开发的插件为基础介绍插件开发主要流程。
+下面以解析器插件为基础介绍插件开发主要流程。
 ## 官方教程
-[官方教程](https://www.elastic.co/guide/en/elasticsearch/plugins/current/plugin-authors.html)对插件开发介绍的比较少。主要是告诉我们我们开发完成的插件应该以zip包的形式存在。在zip包的根目录种中最起码要包含我们开放的插件jar包以插件配置文件`plugin-descriptor.properties`。es是从配置文件认识自定义插件的。如果插件需要依赖其它jar包，则将其页放在zip根目录下即可。此次开发使用的说明文件如下。
+[官方教程](https://www.elastic.co/guide/en/elasticsearch/plugins/current/plugin-authors.html)对插件开发介绍的比较少。主要是告诉我们开发完成的插件应该以zip包的形式存在。在zip包的根目录种中最起码要包含我们开放的插件jar包以及插件描述文件`plugin-descriptor.properties`。es是从配置文件认识自定义插件的。如果插件需要依赖其它jar包，则将其也放在zip根目录下即可。此次开发的插件的说明文件如下。
 ```yaml
 # Elasticsearch 插件说明文件,该文件必须命名为'plugin-descriptor.properties'并存放在插件根目录下
 ### java插件目录结构
@@ -170,7 +172,7 @@ elasticsearch.version=7.1.1
 在插件成功编译成zip包后，我们可以适用`bin/elasticsearch-plugin install file:///path/to/your/plugin`命令来安装插件，或这将zip包直接放在es的`plugins/`目录下。
 
 开发ES插件**总结**来说需要以下几步：
-1. 需要编写一个继承`Plugin`实现插件类型的类。
+1. 需要开发一个jar包，该jar包必须包含一个继承`Plugin`实现插件类型的类。
 2. 需要编写插件配置文件`plugin-descriptor.properties`。
 3. 将这配置文件和jar包打成1个zip包。
 
@@ -252,7 +254,7 @@ public class AnalysisRockstonePlugin extends Plugin implements AnalysisPlugin {
     }
 }
 ```
-此次开发的解析器，需要继承`Plugin`类实现`AnalysisPlugin`接口，其它可实现的借口有`ActionPlugin`、`ClusterPlugin` 、`DiscoveryPlugin`、`IngestPlugin`、`MapperPlugin`、`NetworkPlugin`、`RepositoryPlugin`、`ScriptPlugin`、`SearchPlugin`、`ReloadablePlugin`。
+此次开发的解析器，需要继承`Plugin`类实现`AnalysisPlugin`接口.
 
 在`AnalysisPlugin`接口中我们主要需要实现的方法有:
 ```java
@@ -278,7 +280,7 @@ public interface AnalysisPlugin {
     }
 }
 ```
-在这里我们主要实现`getAnalyzers()`方法。该方法需要返回一个map，该map主要保存解析器名和提供解析器实现的映射。这里的注册方式参考了源生解析器的注册方式(`org.elasticsearch.indices.analysis.AnalysisModule`)。首先使用`RockstoneAnalyzerProvider`的构造方法实现接口`AnalysisModule.AnalysisProvider`的`T get()`方法，从而构造匿名类。`RockstoneAnalyzerProvider`类的实现主要参考`StandardAnalyzerProvider`如下所示
+在这里我们主要实现`getAnalyzers()`方法。该方法需要返回一个map，该map主要保存解析器名和提供解析器实现的映射。这里的注册方式参考了源生解析器的注册方式(`org.elasticsearch.indices.analysis.AnalysisModule`)。首先使用`RockstoneAnalyzerProvider`的构造方法实现接口`AnalysisModule.AnalysisProvider`的`T get()`方法，从而实现`AnalysisProvider`类。`RockstoneAnalyzerProvider`类的实现主要参考`StandardAnalyzerProvider`如下所示
 ```java
 
 public class RockstoneAnalyzerProvider extends AbstractIndexAnalyzerProvider<RockstoneAnalyzer> {
@@ -365,7 +367,7 @@ public class RockstoneAnalyzer extends Analyzer {
 在聊Tokenizer和TokenFilter之前先说下它们的父类TokenStream。TokenStream是一个抽象类，它用来将文档的某个属性或查询字符串转为一组Token。`TokenStream`继承自`AttributeSource`，父类为`TokenStream`提供访问Token属性的功能。一个TokenStream的工作流程基本如下：
 1. 初始化`TokenStream`，从`AttributeSource`获取abttributes或向`AttributeSource`添加abttributes。
 2. 使用者调用`reset()`方法
-3. 使用者可以从`TokenStream`中取出Token的属性并且保存需要访问的Token属性
+3. 使用者可以从`TokenStream`中取出Token的属性或保存需要访问的Token属性
 4. 使用者调用`incrementToken()`，直到返回false前都可以获得Token属性
 5. 使用者调用`end()`执行结束`stream`的操作
 6. 使用者在使用完`TokenStream`后调用`close()`来释放资源
@@ -540,4 +542,4 @@ public class LowerCaseFilter extends TokenFilter {
 门
 ```
 # 总结
-此次本作者尝试以官方文档、源码及注释为主要学习材料，而不是学习他人总结的博客。优秀的开源组件都有详细的备注信息帮助开发理解代码，特别是可以扩展的代码以及核心代码。通过源码理解组件是个很好的学习方式，推荐大家尝试。
+此次本作者尝试以官方文档、源码及注释为主要学习材料，而不是学习他人总结的博客。优秀的开源组件都有详细的备注信息帮助开发者理解代码，特别是可以扩展的代码以及核心代码。通过源码理解组件是个很好的学习方式，推荐大家尝试。
