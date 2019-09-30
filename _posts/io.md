@@ -8,6 +8,13 @@ tags:
 # 前言
 作为程序猿经常会听到阻塞非阻塞，同步异步的概念，前辈也经常告诫我们这些概念是经常会使用到的，面试经常会问。但是其实到最近我才对这些概念有了比较清晰的认识并发现，其实网上大部分解释都比较片面没有说清楚，特别是那个经典的烧开水例子，什么一会来看一会不来看，一会水壶响一会水壶不响，在我现在看来那篇文章仅仅是举的例子比较有意思但缺少讲解，问题来龙去脉也没有解释清楚。因此在这里分享一些自己的看法如果不对还请各位指出。
 
+>老张烧水，水壶放到炉子上，然后专心等待水烧开——同步阻塞，（老张太傻了）  
+>老张烧水，水壶放到炉子上，然后去客厅看电视，时不时去看看水有没有烧开——同步非阻塞（老张觉得自己变聪明了）  
+>老张烧水，使用响水壶，水放到炉子上后等待水壶响——异步阻塞（老张还是有点傻）  
+>老张烧水，使用响水壶，水放到炉子上后就去客厅看电视，等待水壶响后提壶——异步非阻塞（老张觉得自己很聪明）  
+
+
+
 # 概要
 
 <!-- more -->
@@ -15,9 +22,9 @@ tags:
 # 定题
 首先我们来确定问题。如果一个面试官直接让你解释同步与异步,阻塞与非阻塞这几个概念，那我可以说这个面试官问法是相当有问题的。因为同步，异步，阻塞，非阻塞是形容词，不是名词。我们只有将这几个形容词放在相应的上下文或者确定其描述的主体在来解释才有意义。那么同步，异步，阻塞，非阻塞是描述什么的呢？
 
-根据我的了解其实这些词在大部分语境描述的是`网络IO模型`。nginx和netty所号称的异步非阻塞，其实是说它们网络IO模型是异步非阻塞的。下面我们来解释下Linux的IO模型，来看看在描述IO模型时者四个形容词到底指的是什么。
+根据我的了解其实这些词在大部分语境描述的是`网络IO模型`。下面我们来解释下Linux的IO模型，来看看在描述IO模型时者四个形容词到底指的是什么。
 
-# Linux I/O模型
+# Linux 网络I/O模型
 
 ## 概念
 为了说清楚Linux I/O模型，我们需要先搞清楚一些概念。
@@ -36,9 +43,55 @@ Linux操作系统的**用户空间**和**内核空间**。操作系统在提供�
 由于分未这两个阶段以及网络I/O的特殊性，linux为用户程序提供了5种网络I/O处理的方案：
 * 阻塞 I/O（blocking IO）
 * 非阻塞 I/O（nonblocking IO）
-* I/O 多路复用（ IO multiplexing）
-* 信号驱动 I/O（ signal driven IO）
+* I/O 多路复用（IO multiplexing）
+* 信号驱动 I/O（signal driven IO）
 * 异步 I/O（asynchronous IO）
 
 ### 阻塞 I/O（blocking IO）
+在linux中，最简单常用的网络I/O模型是所有socket都blocking的阻塞I/O，根据经典教程unix网络的描述，它的流程如下图
+![BIO](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/bio.gif)
 
+当用户向内核发起了请求获取的数据的系统调用后，CPU会从用户态切换到内核态。当kernel一直等到数据准备好了即数据已从网卡写入到内核缓冲区，接着CPU就会将数据从内核空间中拷贝到用户内存，然后kernel返回结果，用户进程才解除阻塞状态，重新运行起来。 所以，blocking IO的特点就是在IO执行的两个阶段都被block了。 
+
+
+### 非阻塞I/O（nonblocking IO）
+linux下，可以将secket通信设置为non-blocking。其流程如下图所示：
+![nio](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/nonblockingIO.gif)
+
+该模式下用户程序在使用系统调用向内核请求数据时，会告诉内核如果数据没准备好返回ERROR而不是让用户程序阻塞。从用户程序角度讲 ，它发起一个read操作后，并不需要等待，而是马上就得到了一个结果。用户程序判断结果是一个error时，它就知道数据还没有准备好，于是它可以再次发送read操作。一旦kernel中的数据准备好了，并且又再次收到了用户进程的system call，那么它马上就将数据拷贝到了用户内存，然后返回。所以，在nonblocking IO中用户程序需要不断的主动询问kernel数据好了没有。这通常会浪费CPU时间，但是通常在专用于一个功能的系统上偶尔会遇到此模型。
+
+### 多路复用（IO multiplexing）
+多路复用IO是一个非常重要的IO模型，这种IO模型在有些地方被称为event driven IO。在这种模式下又分为3种机制，select\poll\epoll，相同的是它们都会不断的轮询所负责的所有socket，当某个socket有数据到达了，就通知用户进程。流程图如下：
+![mio](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/multiplexingIO.gif)
+
+在这种模式下用户程序会用select这个系统调用开始监视所有负责的socket，如果任何数据准备好select会终止阻塞并返回。然后程序再用另一个系统调用将数据从内核空间读取到用户空间。这个模型精妙之处在于用2个进程分别处理2类阻塞。监控CPU是否将数据准备好的进程同时处理多个链接，而拷贝数据则交给另一类进程。这中模式的有点是可以处理多个connection。如果处理的链接数不是很高的话，这中模式不一定定比使用multi-threading + blocking IO的web server性能更好，可能延迟还更大（使用了2种2次系统调用，blocking只用1次阻塞1次）。在是实际的IO multiplexing Model中，对于每一个socket，一般都设置成为non-blocking，但是，如上图所示，整个用户的process其实是一直被block的。只不过process是被select这个函数block，而不是被socket IO给block。
+
+### 信号驱动 I/O（signal driven IO）
+在信号驱动I/O的模式下用户程序告诉内核，当内核数据准备好后使用SIGIO信号通知用户程序。具体流程如下
+![signalIO](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/signalDriverIO.gif)
+
+在这种模式下用户程序需要先准备好SignalDriven I/O的socket，使用sigaction系统调用。这时内核会立马返回，用户程序可以继续运行。此处它是非阻塞的。当报文已经保存到内核缓冲区后，内核会返回针对我们程序的SIGIO信号，然后用户程序就可以将数据从内核空间读到用户空间了。这种方式的最大好酒就是在等待数据准备完成时不会阻塞用户程序。
+
+### 异步 I/O（asynchronous IO）
+异步I/O是POSIX定义的规范。这种模式与信号驱动类似，不同的是内核会在数据已经完全进入用户空间后再通知用户程序，而不是数据准备好就通知用户程序。流程如下图
+![aio](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/aio.gif)
+
+用户程序使用aio_read开始异步I/O，同时还需要告诉内核descriptor,buffer指针,buffer大小(read也是这3个变量),file offset以及如何通知用户程序传输完成。该调用立刻返回，不会阻塞去等待IO完成。在上图的例子中展示的操作系统使用信号量的方式通知用户程序数据已读去完成。
+
+## Synchronous I/O VS Asynchronous I/O
+在谈对同步异步，阻塞非阻塞的看法前，我们先看下同步和异步IO的定义，以下是POSIX——可移植操作系统接口（Portable Operating System Interface of UNIX ）的定义
+> * A synchronous I/O operation causes the requesting process to be blocked until that I/O operation completes.
+> * An asynchronous I/O operation does not cause the requesting process to be blocked.
+
+意思就是同步IO操作会导致请求程序阻塞而异步IO操作会导致。运用这个定义blocking, nonblocking, I/O multiplexing, 和signal-driven I/O都是同步IO操作，因为实际的IO操作（recvfrom）会阻塞用户程序。只有asynchronous IO是异步IO。这句话不是我说的是<<unix网络编程 v1.3>>这本书6.2小节的[最后一句话](http://www.masterraghu.com/subjects/np/introduction/unix_network_programming_v1.3/ch06lev1sec2.html)，不信自己去查。
+
+# 我的见解
+关于同步异步，阻塞非阻塞我的见解是。
+1. 从网络I/O模型分类上看有阻塞I/O、非阻塞I/O、异步I/O，没有同步I/O这个名词。
+2. 如果将I/O模型用同步和异步来分类的话，那么除了异步I/O剩下的都是同步I/O。
+3. 判断同步异步I/O模型的依据是请求程序是否被内核阻塞
+4. 在描述网络I/O模型的时候四个词的意思大体如此，不同语境含义可能不太一样
+4. 阻塞和非阻塞是多用于描述进程状态的形容词
+5. 同步和异步是多用于描述交互模式的形容词
+6. 在消息交互的双方，如果消息的消费者因为生产者没有返回数据而不能运行被阻塞则是同步交互方式，如果消费者没有因为消息生成者的不返回而被阻塞则是异步的交互方式
+7. 在烧开水的例子中，老张是用户程序，烧水壶是操作系统，水是数据。阻塞与非阻塞是老是在等待开水时是否能干别的事，也就是用户进程能否在等待资源时继续运行，而同步与异步是开水烧好这件事是老张发现的还是水壶告诉他的。
