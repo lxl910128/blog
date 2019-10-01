@@ -12,7 +12,7 @@ keywords:
 本文主要介绍如何开发ES解析器插件。在文章中会介绍一个自定义解析插件的主要过程。该插件的核心功能是可以将词"abcd"分为\["abcd","bcd","cd","d"\]。源码地址[在此](https://github.com/lxl910128/analysis-rockstone-plugin)。由于本次开发的是解析器插件，因此本文会顺带介绍ES解析器的基本原理，核心功能`chartFilter,Tokenzier,TokenFilter`如何实现。
 
 在开始前还需要说明的是，根据高人指点，上篇[文章](http://blog.gaiaproject.club/es-contains-search/)中提四种分词方案即将"abcd"分词为\["abcd","bcd","cd","d"\]，其实使用ES自带的`edge_ngram` tokenizer加`reverse` token filter就可实现相似的功能。即将"abcd"分词为\["a","ba","cba","dcba"\]，搜索时借助`prefix`查询就可以完成字符串包涵的搜索需求。这里还有一个需要注意的点是，使用`prefix`查询时需要自行将查询词逆序。当然也可以使用`match_phrase_prefix`使用`analyzer`配置只带`reverse` token filter的解析器对查询词进行反转。使用`match_phrase_prefix`还有个好出会自行根据出现频率排序。
-
+<!-- more -->
 # 预备知识点
 1. 在es中一串字符串如果要被索引，需要经过对应的解析器`Analyzers`将其转化出`terms`和`tokens`。
 2. `term`是搜索的最小单元
