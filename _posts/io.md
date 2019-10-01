@@ -16,7 +16,7 @@ tags:
 但我觉得解释的十分别扭，因此自己做了些研究并有了些心得，在这里与大家分享一下。
 
 # 概要
-本文首先提出这四个词是形容词，理解必须包含上下文。它们多用来形容网络I/O模型。然后对linux 5种网络I/O模型进行了介绍从中抽象概念。作者认为阻塞和非阻塞主要是形容流程的，同步异步是形容交互模式的。请求方的流程因为数据请求而被阻塞则这种交互模式是同步的，反之没有因为数据请求而阻塞流程的交互模式是异步的。
+本文首先提出这四个词是形容词，理解必须包含上下文。它们多用来形容网络I/O模型。然后对linux 5种网络I/O模型进行了介绍从中抽象概念。作者认为阻塞和非阻塞主要是形容流程的，同步异步是形容交互模式的。请求方的流程因为数据请求而被阻塞则这种交互模式是同步的，反之没有因为数据请求而阻塞流程的交互模式是异步的。最后作者阐述了对使用烧开水来解释这四个词的看法。
 <!-- more -->
 
 # 定题
@@ -48,32 +48,32 @@ Linux操作系统的**用户空间**和**内核空间**。操作系统在提供�
 * 异步 I/O（asynchronous IO）
 
 ### 阻塞 I/O（blocking IO）
-在linux中，最简单常用的网络I/O模型是所有socket都blocking的阻塞I/O，根据经典教程unix网络的描述，它的流程如下图
+在linux中，最简单常用的网络I/O模型是所有socket都blocking的阻塞I/O，根据经典教程unix网络的描述，它的流程如下图:  
 ![BIO](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/bio.gif)
 
 当用户向内核发起了请求获取的数据的系统调用后，CPU会从用户态切换到内核态。当kernel一直等到数据准备好了即数据已从网卡写入到内核缓冲区，接着CPU就会将数据从内核空间中拷贝到用户内存，然后kernel返回结果，用户进程才解除阻塞状态，重新运行起来。 所以，blocking IO的特点就是在IO执行的两个阶段都被block了。 
 
 
 ### 非阻塞I/O（nonblocking IO）
-linux下，可以将secket通信设置为non-blocking。其流程如下图所示：
+linux下，可以将secket通信设置为non-blocking。其流程如下图所示：  
 ![nio](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/nonblockingIO.gif)
 
 该模式下用户程序在使用系统调用向内核请求数据时，会告诉内核如果数据没准备好返回ERROR而不是让用户程序阻塞。从用户程序角度讲 ，它发起一个read操作后，并不需要等待，而是马上就得到了一个结果。用户程序判断结果是一个error时，它就知道数据还没有准备好，于是它可以再次发送read操作。一旦kernel中的数据准备好了，并且又再次收到了用户进程的system call，那么它马上就将数据拷贝到了用户内存，然后返回。所以，在nonblocking IO中用户程序需要不断的主动询问kernel数据好了没有。这通常会浪费CPU时间，但是通常在专用于一个功能的系统上偶尔会遇到此模型。
 
 ### 多路复用（IO multiplexing）
-多路复用IO是一个非常重要的IO模型，这种IO模型在有些地方被称为event driven IO。在这种模式下又分为3种机制，select\poll\epoll，相同的是它们都会不断的轮询所负责的所有socket，当某个socket有数据到达了，就通知用户进程。流程图如下：
+多路复用IO是一个非常重要的IO模型，这种IO模型在有些地方被称为event driven IO。在这种模式下又分为3种机制，select\poll\epoll，相同的是它们都会不断的轮询所负责的所有socket，当某个socket有数据到达了，就通知用户进程。流程图如下：  
 ![mio](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/multiplexingIO.gif)
 
 在这种模式下用户程序会用select这个系统调用开始监视所有负责的socket，如果任何数据准备好select会终止阻塞并返回。然后程序再用另一个系统调用将数据从内核空间读取到用户空间。这个模型精妙之处在于用2个进程分别处理2类阻塞。监控CPU是否将数据准备好的进程同时处理多个链接，而拷贝数据则交给另一类进程。这中模式的有点是可以处理多个connection。如果处理的链接数不是很高的话，这中模式不一定定比使用multi-threading + blocking IO的web server性能更好，可能延迟还更大（使用了2种2次系统调用，blocking只用1次阻塞1次）。在是实际的IO multiplexing Model中，对于每一个socket，一般都设置成为non-blocking，但是，如上图所示，整个用户的process其实是一直被block的。只不过process是被select这个函数block，而不是被socket IO给block。
 
 ### 信号驱动 I/O（signal driven IO）
-在信号驱动I/O的模式下用户程序告诉内核，当内核数据准备好后使用SIGIO信号通知用户程序。具体流程如下
+在信号驱动I/O的模式下用户程序告诉内核，当内核数据准备好后使用SIGIO信号通知用户程序。具体流程如下:  
 ![signalIO](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/signalDriverIO.gif)
 
 在这种模式下用户程序需要先准备好SignalDriven I/O的socket，使用sigaction系统调用。这时内核会立马返回，用户程序可以继续运行。此处它是非阻塞的。当报文已经保存到内核缓冲区后，内核会返回针对我们程序的SIGIO信号，然后用户程序就可以将数据从内核空间读到用户空间了。这种方式的最大好酒就是在等待数据准备完成时不会阻塞用户程序。
 
 ### 异步 I/O（asynchronous IO）
-异步I/O是POSIX定义的规范。这种模式与信号驱动类似，不同的是内核会在数据已经完全进入用户空间后再通知用户程序，而不是数据准备好就通知用户程序。流程如下图
+异步I/O是POSIX定义的规范。这种模式与信号驱动类似，不同的是内核会在数据已经完全进入用户空间后再通知用户程序，而不是数据准备好就通知用户程序。流程如下图:  
 ![aio](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/aio.gif)
 
 用户程序使用aio_read开始异步I/O，同时还需要告诉内核descriptor,buffer指针,buffer大小(read也是这3个变量),file offset以及如何通知用户程序传输完成。该调用立刻返回，不会阻塞去等待IO完成。在上图的例子中展示的操作系统使用信号量的方式通知用户程序数据已读去完成。
