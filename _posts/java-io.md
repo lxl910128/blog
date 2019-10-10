@@ -61,13 +61,28 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 epoll机制在处理高并发且逻辑不复杂的业务中表现优异，著名的nginx就是使用的epoll机制实现的。epoll机制其实内容很多，[这篇文章](https://blog.csdn.net/daaikuaichuan/article/details/83862311)我认为介绍的比较详细。
 
 # JAVA IO操作
+本章将逐个介绍BIO，NIO，AIO。介绍时首先会以点带面的介绍相关概念，然后会列出该模式下一个网络I/O服务端的例子。
+
+
 关于JAVA IO很多基本概念，这里以点的方式提一些我认为比较重要的。
 1. JAVA I/O就是数据输入（Input）到JVM中，或输出（Output）到JVM中。Input Output指的是进入JVM或出从JVM出。
-2. 在JAVA中主要的输入输出源是文件或网络。
-3. 从输入输出数据的类型来分，JAVA有面向字节流的Input/Output也有面向字符流的Read/Write。
-4. JAVA传统的I/O方式是bio（blocking IO）。它是基于流模式实现的。它的交互模式是同步的，在读取/写入流数据时，读写完成前线程会被阻塞。
-5. JAVA在1.4版本提出了nio（new IO）。注意NIO不是non-blocking IO。它是在操作系统多路复用IO的基础上实现的。
-6. JAVA在1.7版本提出了nio 2.0 也称为aio。
+2. 在JAVA中主要的输入输出源有文件，管道，网络链接，内存缓存，System.out(标准输出)，System.in(标准输入)，System.error(错误输出)。
+3. JAVA传统的I/O方式是bio（blocking IO），其实称为传统IO可能更准确点。它是基于流模式实现的。它的交互模式是同步的，在读取/写入流数据时，读写完成前线程会被阻塞。
+4. JAVA在1.4版本增加了nio（new IO）。注意NIO不是non-blocking IO。它是在操作系统多路复用IO的基础上实现的。通常情况下使用的poll机制，如果是高版本的linux会自动使用epoll机制。
+5. JAVA在1.7版本增加了nio 2.0 也称为aio。
+
+本章我将依托网络I/O的例子逐个介绍BIO，NIO，AIO。
+
+## BIO
+java BIO（blocking IO）或称JAVA传统IO，是java 1.0提出的IO模型，也是最简单最直接的IO模型。与它相关的概念比较多，这里提几点比较重要的；
+1. java传统IO是基于流模式实现的同步交互，在读取/写入数据时，当先线程会被阻塞；
+2. java I/O中I表示input指进入jvm，O表示output指从jvm输出；
+3. 传统IO的输入输出源一般为文件、网络链接、pipe（管道）、buffer（内存缓存）、System.out(标准输出)、System.in(标准输入)、System.error(错误输出)；
+4. 
+
+
+
+
 6. nio属于同步非阻塞IO，因为从整体流程上看，在数据进入JVM或从JVM输出完成前，这个链接的处理流成无法继续进行，是被阻塞的。但是由于多路复用IO的机制，线程不用专注等待某个链接数据准备完成，而是直接去处理已经准备完成的链接。所以从线程的角度讲，线程会去处理数据准备好的链接，线程没有被阻塞。
 7. nio相较于bio除了使用了操作系统的多路复用IO
 7. nio新引入了buffer、channel和selector三个概念。
