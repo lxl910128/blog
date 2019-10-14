@@ -23,7 +23,7 @@ keywords:
 其次JVM作为用户程序，是要依托于操作系统运行的。因此JVM可以实现的IO操作是基于操作系统提供了相应的支持。所以在学习JVM的IO模式前了解操作系统支持的IO模型很有必要。
 
 # 操作系统多路复用I/O
-在上一节我们已经介绍了操作系统多路复用I/O，但是没有细说这种模式细分的三种机制：select、poll、epoll。由于本文会用到，下面再来详细说下这3中机制的区别。不过再次之前我们先回顾下多路复用I/O的内容。多路复用I/O的本质是，通过一种机制，让单个进程可以监控多个文件描述符（文件、socket、管道等在linux看来都是文件描述符），一旦某个数据就绪（数据保存在内和空间），能够通知程序进行相应读写操作。
+在上一节我们已经介绍了操作系统多路复用I/O，但是没有细说这种模式细分的三种机制：select、poll、epoll。由于本文会用到，下面再来详细说下这3种机制的区别。不过在此之前我们先回顾下多路复用I/O的内容。多路复用I/O的本质是，通过一种机制，让单个进程可以监控多个文件描述符（文件、socket、管道等在linux看来都是文件描述符），一旦某个数据就绪（数据保存在内核空间），能够通知程序进行相应读写操作。
 
 ## select机制
 **基本原理**：select函数可以监控文件描述符3种状态，分别为writefds(可写)、readfds（可读）、exceptfds（出错）。调用select函数后会阻塞，并轮询所有文件描述符直到有描述符变为上述3种状态中的1种或者超时，函数将返回。当select函数返回后，可以通过遍历文件描述符集合fdset，来找到就绪的描述符。具体函数如下：
@@ -101,8 +101,8 @@ public class BioServer {
 
 ## NIO
 1. nio相较于bio除了使用了操作系统的多路复用IO，所以NIO解释为new IO更准确，而不是non-blocking IO。
-2. nio属于同步非阻塞IO，因为从整体流程上看，在数据进入JVM或从JVM输出完成前，这个链接的处理流成无法继续进行，是被阻塞的所以是同步。但是由于多路复用IO的机制，线程不用专注等待某个链接数据准备完成，而是直接去处理已经准备完成的链接。所以从线程的角度讲，线程会去处理数据准备好的链接，线程没有被阻塞。在后面的例子中我们可以看见一个线程同时可以处理多个链接。
-3. nio新引入了buffer、channel和selector三个概念。三成的关系大致可以里接为selector上管理了多个channel，当channel中有用户关注的读\写\注册事件发生时，用户可以从selector获取到相应channel并向其输入或读出包含数据的buffer。
+2. nio属于同步非阻塞IO，因为从整体流程上看，在数据进入JVM或从JVM输出完成前，这个链接的处理流程无法继续进行，是被阻塞的所以是同步。但是由于多路复用IO的机制，线程不用专注等待某个链接数据准备完成，而是直接去处理已经准备完成的链接。所以从线程的角度讲，线程会去处理数据准备好的链接，线程没有被阻塞。在后面的例子中我们可以看见一个线程同时可以处理多个链接。
+3. nio新引入了buffer、channel和selector三个概念。三者的关系大致可以理解为selector上管理了多个channel，当channel中有用户关注的读\写\注册事件发生时，用户可以从selector获取到相应channel并向其输入或读出包含数据的buffer。
 4. NIO是面向channel的，对应的有关于socket的SocketChannel(客户端channel)、ServerSocketChannel(服务端channel)、DatagramChannel(UDP channel)以及针对文件的FileChannel
 5. 从channel读写的数据是以buffer为基准的
 6. Buffer，缓冲区就是一个可读写的数组
@@ -112,7 +112,7 @@ public class BioServer {
 10. 位置(Position): 下一个要被读或写的元素的位置
 11. 标记(Mark)一个标记位置，调用reset方法可以将position置为标记的位置
 ![buffer](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/buffer.bmp)
-12. 与BIO面向stream想对NIO是面向Channel
+12. 与BIO面向stream相对NIO是面向Channel
 13. channel的源主要有文件和网络socket
 14. 与BIO中stream对byte数组或char数组进行读写不同，NIO中是对channel中的Buffer进行读写
 15. selector是一个channel管理器，是实现同时管理多个channel的NIO核心组件
@@ -189,7 +189,7 @@ public class AsyncTest {
                     Future<Integer> writeResult = null;
                     try {
                         buffer.clear();
-                        // read接过是使用Future封装的对象，需要使用get真正阻塞读取
+                        // read结果是使用Future封装的对象，需要使用get真正阻塞读取
                         result.read(buffer).get(100, TimeUnit.SECONDS);
                         System.out.println("In server: " + new String(buffer.array()));
                         //将数据写回客户端
