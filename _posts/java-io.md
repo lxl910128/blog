@@ -7,16 +7,20 @@ keywords:
 ---
 
 # 概要
-在[上一节](http://blog.gaiaproject.club/io/)我们介绍了操作系统的IO操作，详细描述了网络IO的5种模式。每种模式主都有2个角色，分别是系统内核和用户程序，而上节主要是以系统内核的角度来定义描述这5种模式。本章将从用户程序的角度再来说说IO交互模式。这里我们选择的用户程序是我们熟知的JVM虚拟机，着重介绍JAVA是如何运用操作系统提供的IO模型实现自己的BIO，NIO，AIO操作的。
+在[上一节](http://blog.gaiaproject.club/io/)我们介绍了操作系统的IO操作，详细描述了网络IO的5种模式。每种模式主都有2个角色，分别是系统内核和用户程序，而上节主要是以系统内核的角度来定义描述这5种模式。本章将从用户程序的角度再来说说IO交互模式。这里我们选择的用户程序是我们熟知的JVM虚拟机，着重介绍JAVA是如何运用操作系统提供的IO模型实现自己的BIO，NIO，AIO操作的。  
+
+由于涉及知识太多且作者能力有限，所以本文主要写作方式是以点盖面，列出作者认为主要的知识点，在整体逻辑上可能会比较碎。
+
+<!-- more-->
 
 # JVM
-本小节将聊聊对JVM几个点的认识，方便后续讲解的开展。  
+本小节将聊聊对JVM几点认识，方便后续讲解的开展。  
+
+首先我认为某种意义上JVM的功能与操作系统类似。它向下屏蔽了操作系统的差异，向上为字节码提供了统一的运行环境。比如针对文件外的各种IO操作，关于CPU的各种线程管理以及对用户透明的内存管理。也正是由于它对操作系统差异的屏蔽，使得它具有一次编译到处运行的特点。即Java字节码可以运行在任何操作系统上，只要这个操作系统上有JVM。  
+![jvm抽象](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/jvm.bmp)  
 
 
-首先我认为某种意义上JVM的功能与操作系统类似。它向下屏蔽了操作系统的差异，向上为使用者提供了统一的资源使用方式。比如关于IO的各种IO操作，关于CPU的各种线程管理以及对用户透明的内存管理。也正是由于它对操作系统差异的屏蔽，使得它具有一次编译到处运行的特点。即Java字节码可以运行在任何操作系统上，只要这个操作系统上有JVM。  
-
-
-其次JVM作为用户程序，是要依托于操作系统运行的。因此JVM可以实现的IO操作是基于操作系统提供相应的实现。所以在学习JVM的IO模式前了解操作系统支持的IO模型很有必要。
+其次JVM作为用户程序，是要依托于操作系统运行的。因此JVM可以实现的IO操作是基于操作系统提供了相应的支持。所以在学习JVM的IO模式前了解操作系统支持的IO模型很有必要。
 
 # 操作系统多路复用I/O
 在上一节我们已经介绍了操作系统多路复用I/O，但是没有细说这种模式细分的三种机制：select、poll、epoll。由于本文会用到，下面再来详细说下这3中机制的区别。不过再次之前我们先回顾下多路复用I/O的内容。多路复用I/O的本质是，通过一种机制，让单个进程可以监控多个文件描述符（文件、socket、管道等在linux看来都是文件描述符），一旦某个数据就绪（数据保存在内和空间），能够通知程序进行相应读写操作。
@@ -39,6 +43,7 @@ typedef struct pollfd {
         short events;                   // 对文件描述符fd上感兴趣的事件
         short revents;                  // 文件描述符fd上当前实际发生的事件
 } pollfd_t;
+
 ```
 
 ## epoll机制
@@ -61,29 +66,156 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
 epoll机制在处理高并发且逻辑不复杂的业务中表现优异，著名的nginx就是使用的epoll机制实现的。epoll机制其实内容很多，[这篇文章](https://blog.csdn.net/daaikuaichuan/article/details/83862311)我认为介绍的比较详细。
 
 # JAVA IO操作
-本章将逐个介绍BIO，NIO，AIO。介绍时首先会以点带面的介绍相关概念，然后会列出该模式下一个网络I/O服务端的例子。
-
-
-关于JAVA IO很多基本概念，这里以点的方式提一些我认为比较重要的。
-1. JAVA I/O就是数据输入（Input）到JVM中，或输出（Output）到JVM中。Input Output指的是进入JVM或出从JVM出。
-2. 在JAVA中主要的输入输出源有文件，管道，网络链接，内存缓存，System.out(标准输出)，System.in(标准输入)，System.error(错误输出)。
-3. JAVA传统的I/O方式是bio（blocking IO），其实称为传统IO可能更准确点。它是基于流模式实现的。它的交互模式是同步的，在读取/写入流数据时，读写完成前线程会被阻塞。
-4. JAVA在1.4版本增加了nio（new IO）。注意NIO不是non-blocking IO。它是在操作系统多路复用IO的基础上实现的。通常情况下使用的poll机制，如果是高版本的linux会自动使用epoll机制。
-5. JAVA在1.7版本增加了nio 2.0 也称为aio。
-
-本章我将依托网络I/O的例子逐个介绍BIO，NIO，AIO。
+本章将逐个介绍BIO，NIO，AIO。介绍时首先会以点带面的介绍相关概念，然后会列出该模式下一个网络I/O服务端的例子。首先我们需要明确JAVA I/O就是数据输入（Input）到JVM中，或从JVM中输出（Output）。Input Output指的是进入JVM或出从JVM出。JAVA在诞生初期仅有BIO然后在1.4版本引入了NIO，1.7对NIO进行了扩展有了NIO 2。
 
 ## BIO
 java BIO（blocking IO）或称JAVA传统IO，是java 1.0提出的IO模型，也是最简单最直接的IO模型。与它相关的概念比较多，这里提几点比较重要的；
 1. java传统IO是基于流模式实现的同步交互，在读取/写入数据时，当先线程会被阻塞；
-2. java I/O中I表示input指进入jvm，O表示output指从jvm输出；
-3. 传统IO的输入输出源一般为文件、网络链接、pipe（管道）、buffer（内存缓存）、System.out(标准输出)、System.in(标准输入)、System.error(错误输出)；
-4. 
+2. 传统IO的输入输出源一般为文件、网络链接、pipe（管道）、buffer（内存缓存）、System.out(标准输出)、System.in(标准输入)、System.error(错误输出)；
+3. java在对BIO的实现时使用了大量装饰者模式
 
+```java
+public class BioServer {
+    public static void main(String[] args) {
+        try (ServerSocket server = new ServerSocket(1986)) {
+                    while (true) {
+                        Socket socket = socket = server.accept(); //阻塞
+                        Socket finalSocket = socket;
+                        new Thread(() -> {
+                            try (BufferedReader in = new BufferedReader(new InputStreamReader(finalSocket.getInputStream()));
+                                 PrintWriter out = new PrintWriter(finalSocket.getOutputStream(), true)) {
+                                String body;
+                                // read 时阻塞
+                                while ((body = in.readLine()) != null && body.length() != 0) {
+                                    System.out.println("server received : " + body);
+                                    out.print("copy right \n");
+                                    out.flush();
+                                }
+                            } catch (IOException e) {}
+                        }).start();
+                    }
+                } catch (Exception e) {}
+    }
+}
+```
 
+## NIO
+1. nio相较于bio除了使用了操作系统的多路复用IO，所以NIO解释为new IO更准确，而不是non-blocking IO。
+2. nio属于同步非阻塞IO，因为从整体流程上看，在数据进入JVM或从JVM输出完成前，这个链接的处理流成无法继续进行，是被阻塞的所以是同步。但是由于多路复用IO的机制，线程不用专注等待某个链接数据准备完成，而是直接去处理已经准备完成的链接。所以从线程的角度讲，线程会去处理数据准备好的链接，线程没有被阻塞。在后面的例子中我们可以看见一个线程同时可以处理多个链接。
+3. nio新引入了buffer、channel和selector三个概念。三成的关系大致可以里接为selector上管理了多个channel，当channel中有用户关注的读\写\注册事件发生时，用户可以从selector获取到相应channel并向其输入或读出包含数据的buffer。
+4. NIO是面向channel的，对应的有关于socket的SocketChannel(客户端channel)、ServerSocketChannel(服务端channel)、DatagramChannel(UDP channel)以及针对文件的FileChannel
+5. 从channel读写的数据是以buffer为基准的
+6. Buffer，缓冲区就是一个可读写的数组
+7. 描述buffer主要有4个变量：容量(Capacity)、上界(Limit)、位置(Position)、标记(Mark)。
+8. 容量(Capacity)： 缓冲区能够容纳的数据元素的最大数量，buffer构造完成后不能改变，因此buffer的构建一般使用静态方法
+9. 上界(Limit)：读写上限
+10. 位置(Position): 下一个要被读或写的元素的位置
+11. 标记(Mark)一个标记位置，调用reset方法可以将position置为标记的位置
+![buffer](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/buffer.bmp)
+12. 与BIO面向stream想对NIO是面向Channel
+13. channel的源主要有文件和网络socket
+14. 与BIO中stream对byte数组或char数组进行读写不同，NIO中是对channel中的Buffer进行读写
+15. selector是一个channel管理器，是实现同时管理多个channel的NIO核心组件
+16. selector可以理解为是操作系统多路复用IO中select/epoll/poll机制的外包类
+17. JVM默认使用poll机制，如果监测系统是高版本（2.4+ 存疑）linux则会自动使用epoll机制
 
+```java
+public class EpollServer {
+        public static void main(String[] args) {
+            try {
+                ServerSocketChannel ssc = ServerSocketChannel.open();
+                ssc.socket().bind(new InetSocketAddress("127.0.0.1", 8000));
+                ssc.configureBlocking(false);
+                //在有多个链接时，该select上会有1个关注注册的channel，有多条已链接的channel每个channel可能关注读也可能在关注写
+                Selector selector = Selector.open();
+                // 注册 channel，并且指定感兴趣的事件是 Accept
+                ssc.register(selector, SelectionKey.OP_ACCEPT);
+                ByteBuffer readBuff = ByteBuffer.allocate(1024);
+                ByteBuffer writeBuff = ByteBuffer.allocate(128);
+                writeBuff.put("received".getBytes());
+                writeBuff.flip();
+                while (true) {
+                    int nReady = selector.select(); //阻塞等待感兴趣的事件
+                    Set<SelectionKey> keys = selector.selectedKeys();
+                    Iterator<SelectionKey> it = keys.iterator();
+                    while (it.hasNext()) {
+                        SelectionKey key = it.next();
+                        it.remove();
+                        if (key.isAcceptable()) {
+                            // 创建新的连接，并且把连接注册到selector上，而且，
+                            // 声明这个channel只对读操作感兴趣。
+                            SocketChannel socketChannel = ssc.accept();
+                            socketChannel.configureBlocking(false);
+                            socketChannel.register(selector, SelectionKey.OP_READ);
+                        } else if (key.isReadable()) {
+                            // 处理读事件，然后表明这个链接的channel只对写事件感兴趣
+                            SocketChannel socketChannel = (SocketChannel) key.channel();
+                            readBuff.clear();
+                            socketChannel.read(readBuff);
+                            readBuff.flip();
+                            System.out.println("received : " + new String(readBuff.array()));
+                            key.interestOps(SelectionKey.OP_WRITE);
+                        } else if (key.isWritable()) {
+                            // channel可写时写入数据，并将channel的关注事件再切到读上
+                            writeBuff.rewind();
+                            SocketChannel socketChannel = (SocketChannel) key.channel();
+                            socketChannel.write(writeBuff);
+                            key.interestOps(SelectionKey.OP_READ);
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+```
+## AIO
+1. Java AIO 又称异步非阻塞IO
+2. AIO向内核发送I/O命令后不会等待数据而是直接去做别的事了。等内核完成I/O操作会自动调用注册的成功或失败回调事件
+3. 在window中使用LOCP实现AIO，在Linux中使用多路复用I/O的epoll机制模拟实现AIO
+4. AIO编码比NIO友好，但依然推荐使用对NIO进行封装的Netty进行网络编程
+```java
+public class AsyncTest {
+    public static void main(String[] args) {
+        try (AsynchronousServerSocketChannel server =
+                     // 设置线程池来运行回调(CompletionHandler)
+                     AsynchronousServerSocketChannel.open(AsynchronousChannelGroup.withFixedThreadPool(10, x -> new Thread(x, "myThread")))
+                             .bind(new InetSocketAddress("localhost", 9832))) {
+            server.accept(null, new CompletionHandler<AsynchronousSocketChannel, Object>() {
+                final ByteBuffer buffer = ByteBuffer.allocate(1024); // AIO读写数据也是针对buffer的
+                @Override
+                public void completed(AsynchronousSocketChannel result, Object attachment) {
+                    Future<Integer> writeResult = null;
+                    try {
+                        buffer.clear();
+                        // read接过是使用Future封装的对象，需要使用get真正阻塞读取
+                        result.read(buffer).get(100, TimeUnit.SECONDS);
+                        System.out.println("In server: " + new String(buffer.array()));
+                        //将数据写回客户端
+                        buffer.flip();
+                        writeResult = result.write(buffer);
+                    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                        e.printStackTrace();
+                    } finally {
+                        server.accept(null, this); // 继续接收
+                        try {
+                            writeResult.get(); // 写完
+                            result.close();
+                        } catch (InterruptedException | IOException | ExecutionException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+                @Override
+                public void failed(Throwable exc, Object attachment) {
+                    System.out.println("failed:" + exc);
+                }
+            });
+            Thread.sleep(1000);
+        } catch (Exception e) {
+        }
+    }
+}
 
-6. nio属于同步非阻塞IO，因为从整体流程上看，在数据进入JVM或从JVM输出完成前，这个链接的处理流成无法继续进行，是被阻塞的。但是由于多路复用IO的机制，线程不用专注等待某个链接数据准备完成，而是直接去处理已经准备完成的链接。所以从线程的角度讲，线程会去处理数据准备好的链接，线程没有被阻塞。
-7. nio相较于bio除了使用了操作系统的多路复用IO
-7. nio新引入了buffer、channel和selector三个概念。
-8. 
+```
