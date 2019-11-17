@@ -70,7 +70,7 @@ class SparkILoop(in0: Option[BufferedReader], out: JPrintWriter)
   // sparkILoop主要是继承了scala的ILoop，它需要1个输入流，输出流，使用控制台输出 输入可以
   def this(in0: BufferedReader, out: JPrintWriter) = this(Some(in0), out)
   def this() = this(None, new JPrintWriter(Console.out, true))
-
+  // 初始化spark时
   val initializationCommands: Seq[String] = Seq(
     """
     @transient val spark = if (org.apache.spark.repl.Main.sparkSession != null) {
@@ -157,7 +157,6 @@ class SparkILoop(in0: Option[BufferedReader], out: JPrintWriter)
 }
 
 object SparkILoop {
-
   /**
    * Creates an interpreter loop with default settings and feeds
    * the given code to it as input.
