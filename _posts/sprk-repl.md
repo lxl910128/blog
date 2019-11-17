@@ -8,7 +8,7 @@ categories:
 # 前言
 最近在思考，如何将spark-shell的交互方式变为spark-web。即用户在页面输入scala代码，spark实时运行，并将结果展示在web页面上。这样可以让有编程能力的数据处理员更方便的使用spark。为了实现这个目的就需要了解spark-shell的实现原理，想办法控制其数据入输出流。  
 本文主要通过源码介绍了spark-shell是如何时实现的，其中scala-repl是实现的基础。本文spark源码的版本是`spark_2.12:v2.3.2`。
-
+<!--more-->
 # spark-shell
 spark-shell提供了一种交互式使用spark的方式。用户只要运行`./bin/spark-shell`就可以进入spark-shell中，在该环境中系统默认为用户创建了一个`SparkContext`，用户可以直接使用scala语言控制这个`sc`。下面我们先看下`spark-shell`。
 ```shell script
