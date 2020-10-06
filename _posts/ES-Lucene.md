@@ -8,7 +8,7 @@ tags:
 - elasticsearch,Lucene  
 
 keywords:
-- elasticsearch,插件,analyzer,chartFilter,Tokenzier,TokenFilter
+- elasticsearch,lucene,inverted index,segment,segment,Finite State Transducers
 ---
 
 # 概要
