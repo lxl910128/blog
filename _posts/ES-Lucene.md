@@ -10,18 +10,19 @@ tags:
 keywords:
 - elasticsearch,插件,analyzer,chartFilter,Tokenzier,TokenFilter
 ---
-# elasticsearch学习——Lucene
-  
-## 概要
+
+# 概要
 elasticsearch是基于Lucene实现的分布式查询分析引擎。它的主要工作是在lucene上做了分布式的封装，增强了可用性及可扩展性（封装的相当成功）。要想学好elasticsearch，那么lucene都是绕不过去的。
 Lucene是基于java实现的全文搜索引擎。它不是完整的应用，但是提供了开源代码及API。  
+
 本文将从以下几个方面对Lucene进行简单介绍：首先通过代码介绍了lucene如何索引文档和搜索文档，然后介绍了Lucene设计的基本概念，接着粗略介绍了文档和搜索的过程，最后从底层存储结构出发介绍了Lucene存储了哪些索引。  
+
 本文介绍的lucene的版本为7.X，是elasticsearch 6.X使用的版本。
 <!--more-->
-## 代码示例
+# 代码示例
 Lucene最核心的2个功能就是，索引文档以及搜索被索引的文档。下面给出这两个功能demo。
 
-### 索引文档
+## 索引文档
 ```java
 @Test
     public void createIndexTest() throws Exception {
@@ -103,7 +104,7 @@ Lucene最核心的2个功能就是，索引文档以及搜索被索引的文档�
     }
 ```
 
-## 搜索文档
+# 搜索文档
 ```java
  @Test
     public void testIndexSearch() throws Exception {
@@ -160,7 +161,7 @@ Lucene最核心的2个功能就是，索引文档以及搜索被索引的文档�
 
 ```
 
-## 基本概念
+# 基本概念
 通过上述示例，相信大家对Lucene有了一个大概的理解，下面我们来介绍Lucene的一些基础概念。
 * 正向索引（forward index）：每个文件都对应一个文件ID，文件内容被表示为一系列关键词的集合。建立文档ID到该文档关键字的映射就是正向索引。
 * 倒排索引（inverted index）：建立关键词到文档的映射。倒排索引一般由字典表和倒排索列表构成。  
@@ -173,7 +174,7 @@ Lucene最核心的2个功能就是，索引文档以及搜索被索引的文档�
 * 属性类型（type of field）：用于定义某field存入lucene的方式，主要从是否分词、是否能搜索、是否存存储三个维度定义。
 * 段（segment）：Lucene索引落在磁盘中的数据结构称为段，由一些列数据文件组成。每个段是一个完整且独立的索引，可支持相关查询功能，每个索引由多个段组成。在索引数据时，数据先保存在内存中，等积累一定数量后写入磁盘形成段。索引定期会将小的段合并成大的段。
 
-## 核心流程
+# 核心流程
 正如前面的文本文件搜索程序所示，Lucene的信息检索功能主要包含两个主要流程：索引和搜索。这两部分的整体流程如下：
 
 ![索引和搜搜过程](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/Lucene-1.png)
@@ -187,7 +188,7 @@ Lucene最核心的2个功能就是，索引文档以及搜索被索引的文档�
     * 搜索索引得到结果文档集，其中涉及到从索引存储中加载索引到内存的过程（b）、（c）
     * 对搜索结果进行排序并返回结果（d）、（e）
  
-### 索引流程
+## 索引流程
 1. 将待索引的文档传递给分词器进行处理，我们样例程序中的StandardAnalyzer即为标准英文分词器，如果需要中文分词，可以使用开源界贡献的插件ik或自定义。
 2. 分词过程会把文档拆分成一个个独立的词（Term），期间会去除标点符号和停用词（“the”、“this”、“a”...），并对词做小写化等处理。
 3. 建立词典表和倒排表，如下图
@@ -199,7 +200,7 @@ Lucene最核心的2个功能就是，索引文档以及搜索被索引的文档�
 5. 当内存空间占用较高或达到时间限制后，内存中的数据会被写入磁盘形成一个数据段（segment），segment实际包含词典、倒排表、字段数据等等多个文件。
 ![字典倒排表2](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/Lucene-4.png)
 
-### 搜索流程
+## 搜索流程
 1. 对用户的请求语句进行词法、语法分析，生成查询语法树，把文本请求转换为Lucene理解的请求对象。
 2. 按照查询语法树，搜索索引获取最终匹配的文档id集合
 3. 对查询结果进行打分排序，获取Top N的文档id集合，获取文档原始数据后返回用户。影响打分的因数因素包含：
@@ -207,11 +208,13 @@ Lucene最核心的2个功能就是，索引文档以及搜索被索引的文档�
     * boost：lucene支持针对不同字段设置权重，例如当Term出现在标题字段时的打分，通常高于其出现在文档内容中的打分。
     * 等
 
-## 核心存储结构
+# 核心存储结构
 segment中存储的索引文件有以下这些。  
 ![段文件](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/Lucene-5.png)  
+
 下面对各分类做简要说明。
-### 倒排索引——字典表
+
+## 倒排索引——字典表
 字典表在倒排索引中至关重要。它根据给定的term找到该term所对应的倒排文档id。可实现此功能的算法主要有如下这些：
 * 排序列表Array/List：使用二分法查找，不平衡
 * HashMap/TreeMap：性能高，内存消耗大，几乎是原始数据的三倍
@@ -232,7 +235,7 @@ Lucene中查询倒排索引的一般步骤为：
 倒排表就是文档号集合，但怎么存，怎么取也有很多讲究，Lucene现使用的倒排表结构叫[Frame of reference](https://www.elastic.co/blog/frame-of-reference-and-roaring-bitmaps),它主要有两个特点:**数据压缩**，可以看下图怎么将6个数字从原先的24bytes压缩到7bytes。**跳跃表加速合并**，因为布尔查询时，and 和or 操作都需要合并倒排表，这时就需要快速定位相同文档号，所以利用跳跃表来进行相同文档号查找。  
 ![倒排表压缩](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/Lucene-7.png)
 
-### 正向索引——行式存储
+## 正向索引——行式存储
 正向文件指的就是原始文档，Lucene对原始文档也提供了存储功能，它存储特点就是分块+压缩，`.fdt`文件就是存放原始文档的文件，它占了索引库90%的磁盘空间，`.fdx`文件为索引文件，通过文档号（自增数字）快速得到文档位置，它们的文件结构如下
 
 ![正向行式索引](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/Lucene-8.png)  
@@ -253,15 +256,20 @@ Lucene中查询倒排索引的一般步骤为：
 
 从上面分析可以看出，lucene对原始文件的存放是行是存储，并且为了提高空间利用率，是多文档一起压缩，因此取文档时需要读入和解压额外文档，因此取文档过程非常依赖随机IO，以及lucene虽然提供了取特定列，但从存储结构可以看出，并不会减少取文档时间。
 
-### 正向索引——列式存储
+## 正向索引——列式存储
 我们知道倒排索引能够解决从词到文档的快速映射，但当我们需要对检索结果进行分类、排序、数学计算等聚合操作时需要文档号到值的快速映射，而原先不管是倒排索引还是行式存储的文档都无法满足要求。  
+
 原先4.0版本之前，Lucene实现这种需求是通过FieldCache，它的原理是通过按列逆转倒排表将（field value ->doc）映射变成（doc -> field value）映射,但这种实现方法有着两大显著问题：构建时间长；内存占用大，易OutOfMemory，且影响垃圾回收。  
+
 因此4.0版本后Lucene推出了DocValues来解决这一问题，它和FieldCache一样，都为列式存储，但它有如下优点：预先构建，写入文件；基于映射文件来做，脱离JVM堆内存，系统调度缺页。  
+
 Lucene目前有五种类型的DocValues：NUMERIC、BINARY、SORTED、SORTED_SET、SORTED_NUMERIC，针对每种类型Lucene都有特定的压缩方法。如对NUMERIC类型即数字类型，数字类型压缩方法很多，如：增量、表压缩、最大公约数，根据数据特征选取不同压缩方法。SORTED类型即字符串类型，压缩方法就是表压缩：预先对字符串字典排序分配数字ID，存储时只需存储字符串映射表，和数字数组即可，而这数字数组又可以采用NUMERIC压缩方法再压缩。这样就将原先的字符串数组变成数字数组，一是减少了空间，文件映射更有效率，二是原先变成访问方式变成固长访问。  
+
 对DocValues的应用，ElasticSearch功能实现地更系统、更完整，即ElasticSearch的Aggregations——聚合功能，它的聚合功能分为三类：
 1. Metric（统计），典型功能：sum、min、max、avg、cardinality、percent等
 2. Bucket（分桶），典型功能：日期直方图，分组，地理位置分区
 3. Pipline（基于聚合再聚合），典型功能：基于各分组的平均值求最大值。  
+
 基于这些聚合功能，ElasticSearch不再局限与检索，而能够回答诸如"销售部门男女人数、平均年龄是多少"的问题。实现过程如下图  
 ![DocValues](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/Lucene-12.png)
 
@@ -273,7 +281,7 @@ Lucene目前有五种类型的DocValues：NUMERIC、BINARY、SORTED、SORTED_SET
 
 上面就是ElasticSearch进行聚合的整体流程，也可以看出ElasticSearch做聚合的一个瓶颈就是最后一步的聚合只能单机聚合，也因此一些统计会有误差，比如count(*) group by producet limit 5,最终总数不是精确的。因为单点内存聚合，所以每个分区不可能返回所有分组统计信息，只能返回部分，汇总时就会导致最终结果不正确。
 
-## 参考
+# 参考
 https://www.bilibili.com/video/BV1eJ411q7nw  
 https://cloud.tencent.com/developer/article/1181441  
 https://lucene.apache.org/core/7_7_3/core/org/apache/lucene/codecs/lucene70/package-summary.html#package.description  
