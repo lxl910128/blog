@@ -1,4 +1,3 @@
-```
 ---
 title: elasticsearch学习——节点角色  
 
@@ -11,7 +10,6 @@ tags:
 keywords:
 - elasticsearch, master eligible node, data node, ingest node, coordinationg node
 ---
-```
 
 
 
