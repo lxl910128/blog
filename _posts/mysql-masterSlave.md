@@ -1,9 +1,9 @@
 ---
 title: docker配置主从mysql
 categories:
-- mysql, docker
-tags:
 - mysql
+tags:
+- mysql, docker
 keywords:
 - docker, mysql, 主从数据库, 数据同步
 ---
