@@ -1,5 +1,5 @@
 ---
-title: docker配置中从mysql
+title: docker配置主从mysql
 categories:
 - mysql, docker
 tags:
