@@ -12,7 +12,7 @@ keywords:
 1. spark stream 支持使用相同的代码进行批处理、在流数据上做即席查询、历史数据加入流。
 
 2. Spark Streaming接收实时输入数据流，并将数据分成批处理，然后由Spark引擎进行处理，以生成批处理的最终结果流。
-
+<!-- more -->
 3. 开发spark stream基本部署：
 
    1. 定义Dstream输入源
