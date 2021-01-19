@@ -75,7 +75,7 @@ public HttpHandler build() {
 
 可以看出`SoulWebHandler`在`WebHttpHandlerBuilder` 里和`WebFilter`以及`WebExceptionHandler`构成了1个处理链WebHandler，然后再通过装饰器变成HttpHandler提供http请求处理逻辑。这里取WebHandler是通过bean的名字取的，因此只要设置好名字SoulWebHandler就成功替代了dispatchWebHandler。
 
-## HttpWebHandlerAdapter
+# HttpWebHandlerAdapter
 
 `HttpWebHandlerAdapter` 主要功能是使用WebHandler实现HttpHandler接口。核心处理逻辑简短说就是把HttpHandler接口入参`request`和`response`封装成WebHandler用ServerWebExchange，然后调WebHandler的处理方法。具体如下：
 
@@ -100,7 +100,7 @@ public HttpHandler build() {
 	}
 ```
 
-## SoulWebHandler
+# SoulWebHandler
 
 直接上核心代码：
 
