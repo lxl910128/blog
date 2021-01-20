@@ -30,7 +30,7 @@ WebHandler定义了Web请求必要一些处理行为，官方解释如下：
 >
 >WebHttpHandlerBuilder提供了一种方便的方法，将WebHandler装饰为1个HttpHandler，同时还可以选择配置一个或多个过滤器和/或异常处理程序。
 
-可以看出主要是WebHttpHandlerBuilder在使用WebHandler，它的build方法构造出了HttpHandler——用户处理Http请求，需要依托于webHandler。其核心源码如下：
+可以看出主要是WebHttpHandlerBuilder在使用WebHandler，它的build方法构造出了HttpHandler——用于处理Http请求，需要依托于webHandler。其核心源码如下：
 
 ```java
 /*
