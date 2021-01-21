@@ -1,11 +1,13 @@
 ---
 title: elasticsearch解析器插件开发介绍
+date: 2019/10/02 01:13:10
 categories:
 - elasticsearch
 tags:
-- elasticsearch,插件
+- elasticsearch
+- 插件
 keywords:
-- elasticsearch,插件,analyzer,chartFilter,Tokenzier,TokenFilter
+- elasticsearch, 插件, analyzer, chartFilter, Tokenzier, TokenFilter
 ---
 
 # 概要

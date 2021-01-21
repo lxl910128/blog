@@ -1,14 +1,14 @@
 ---
 title: 联邦学习——打破数据孤岛 
-
+date: 2020/11/22 06:25:10
 categories:
-- federated learning  
+- AI
 
 tags:
 - federated learning
 
 keywords:
-- federated learning,联邦学习,横向联邦,纵向联邦
+- federated learning, 联邦学习, 横向联邦, 纵向联邦
 ---
 # 概述
 

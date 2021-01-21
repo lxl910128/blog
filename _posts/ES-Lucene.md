@@ -1,14 +1,15 @@
 ---
 title: elasticsearch学习——Lucene  
-
+date: 2020/10/06 13:10:10
 categories:
 - elasticsearch  
 
 tags:
-- elasticsearch,Lucene  
+- elasticsearch
+- Lucene  
 
 keywords:
-- elasticsearch,lucene,inverted index,segment,segment,Finite State Transducers
+- elasticsearch, lucene, inverted index, segment, segment, Finite State Transducers
 ---
 
 # 概要

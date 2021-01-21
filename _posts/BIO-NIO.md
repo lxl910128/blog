@@ -1,9 +1,12 @@
 ---
 title: JAVA BIO 与 NIO 简介
+date: 2019/3/8 10:04:25
 categories:
 - JAVA
 tags:
 - IO
+keywords:
+- java, IO, NIO, BIO
 ---
 # 概述
 I/O操作是系统中十分基础且重要的操作，同样也很容易产生性能瓶颈。本文以网络IO为使用场景，首先介绍IO是什么以及Linux常见的5中IO模型，然后介绍java BIO，分析了它的不足，最后介绍NIO是如何解决BIO的问题及NIO的Reactor模式。 

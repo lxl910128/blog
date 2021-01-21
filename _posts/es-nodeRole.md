@@ -1,11 +1,12 @@
 ---
 title: elasticsearch学习——节点角色  
-
+date: 2020/11/12 06:25:10
 categories:
 - elasticsearch  
 
 tags:
-- elasticsearch,node  
+- elasticsearch
+- es-node
 
 keywords:
 - elasticsearch, master eligible node, data node, ingest node, coordinationg node

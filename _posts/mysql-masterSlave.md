@@ -1,9 +1,11 @@
 ---
 title: docker配置主从mysql
+date: 2020/12/2 18:43:10
 categories:
 - mysql
 tags:
-- mysql, docker
+- mysql
+- docker
 keywords:
 - docker, mysql, 主从数据库, 数据同步
 ---

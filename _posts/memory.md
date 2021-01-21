@@ -1,5 +1,6 @@
 ---
 title: JVM运行时数据区简介
+date: 2020/10/12 15:58:10
 categories:
 - JAVA
 tags:

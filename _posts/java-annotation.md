@@ -1,9 +1,12 @@
 ---
 title: JAVA注解
+date: 2019/3/8 18:36:10
 categories:
 - JAVA
 tags:
 - 注解
+keywords:
+- java, annotation , 注解
 ---
 # 介绍
 JAVA annotation（注解）的官方解释是:

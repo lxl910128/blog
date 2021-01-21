@@ -1,5 +1,6 @@
 ---
 title: JAVA函数式接口及lambda表达式
+date: 2019/3/8 18:18:10
 categories:
 - JAVA
 tags:

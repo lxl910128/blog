@@ -1,9 +1,12 @@
 ---
 title: elasticsearch中字符串包含查询
+date: 2019/8/23 09:20:00
 categories:
 - elasticsearch
 tags:
 - 查询分析
+keywords:
+- java, 动态代理, Proxy.newProxyInstance
 ---
 
 # 概要

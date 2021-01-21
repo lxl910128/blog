@@ -1,9 +1,12 @@
 ---
 title: JAVA动态代理实质
+date: 2019/1/22 09:20:00
 categories:
 - JAVA
 tags:
 - 动态代理
+keywords:
+- java, 动态代理, Proxy.newProxyInstance
 ---
 # 动态代理介绍
 不再赘述，用代码再体现下

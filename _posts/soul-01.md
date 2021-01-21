@@ -1,9 +1,11 @@
 ---
 title: soul学习——01环境搭建
+date: 2021/1/14 22:00:10
 categories:
 - soul
 tags:
-- soul, 网关
+- soul
+- 网关
 keywords:
 - soul , 网关, 插件, 高性能, 可配置
 ---

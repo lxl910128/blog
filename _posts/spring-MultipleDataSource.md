@@ -1,9 +1,10 @@
 ---
 title: spring配置多数据源
+date: 2020/12/2 18:41:10
 categories:
 - spring
 tags:
-- spring, 多数据源, AbstractRoutingDataSource
+- spring
 keywords:
 - spring, 多数据源, AbstractRoutingDataSource
 ---
