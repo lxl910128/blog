@@ -1,5 +1,5 @@
 ---
-title: soul学习——07公共插件逻辑
+title: soul学习——07请求主线处理插件
 date: 2021/1/21 21:33:10
 categories:
 - soul
@@ -7,12 +7,12 @@ tags:
 - soul
 - 网关
 keywords:
-- soul , 网关,
+- soul , 网关, GlobalPlugin, spring-cloud Plugin, WebClientPlugin, WebClientResponsePlugin
 ---
 
 # 概述
 
-本文继续分析soul网关的处理流程。根据上文所有流量必定会走globalPlugin和1个路由插件，本文就来分析下这两个插件，其中路由插件选取spring-cloud插件来分析。
+本文继续分析soul网关路由转发流程涉及的插件。路由转发是最小可行性网关最核心的功能。在soul中实现这个功能需要涉及4个插件，依次是：GlobalPlugin--> 路由插件 ---> WebClientPlugin --->  WebClientResponsePlugin。其中路由插件是一类插件，本文以spring-cloud Plugin为切入点介绍。 
 
 <!-- more -->
 
