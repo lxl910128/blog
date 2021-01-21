@@ -2,9 +2,11 @@
 title: Spark Launcher(v 2.3.2)
 date: 2019/9/14 20:06:10
 tags:
-- spark
+- spark Launcher
 categories:
-- spark架构
+- spark
+keywords:
+- spark, spark Launcher
 ---
 # 概述
 Spark Launcher的主要有两个功能：1、通过JAVA程序启动Spark任务。2、监控Spark任务的运行情况，可以根据任务状态等的变法设置不同的执行逻辑同时提供主动停止Application的功能。  

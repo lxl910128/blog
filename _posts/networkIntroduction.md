@@ -2,7 +2,7 @@
 title: 互联网科普及物联网畅享
 date: 2020/8/23 14:31:10
 categories:
-- 科普随笔
+- 随笔
 tags:
 - network
 - Iot
