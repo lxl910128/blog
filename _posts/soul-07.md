@@ -75,7 +75,7 @@ public class GlobalPlugin implements SoulPlugin {
 
 可以看出GlobalPlugin主要干的工作就是借助SoulContextBuilder用ServerWebExchange生成SoulContext，并将其存到ServerWebExchange的`context` key下。
 
-我们纠结`SoulContextBuilder`转化的具体逻辑，但是可以看看`SoulContext`都存了什么，源码如下：
+我们不纠结`SoulContextBuilder`转化的具体逻辑，但是可以看看`SoulContext`都存了什么，源码如下：
 
 ```java
 public class SoulContext implements Serializable {
@@ -207,7 +207,7 @@ public class SpringCloudPlugin extends AbstractSoulPlugin {
 
 可以看出spring-cloud插件也没做什么特殊的事情，主要就是用从注册中心找到合适的下游服务的URI地址，然后拼上其他信息形成实际要访问的URL，放在请求上下文的httpUrl key中。
 
-和想象中的不太一样，我以为在此差价中就要访问后端服务了，我们继续找一下实际请求下游服务的地方
+和想象中的不太一样，我以为在此插件中就要访问后端服务了，我们继续找一下实际请求下游服务的地方
 
 # WebClientPlugin
 
@@ -259,7 +259,7 @@ public class WebClientPlugin implements SoulPlugin {
         return "webClient";
     }
 
-    @Override // rpc 是 http 或 rpc是 SPRING_CLOUD 时 不跳过
+    @Override // rpcType 是 http 或 rpcType是 SPRING_CLOUD 时 不跳过
     public Boolean skip(final ServerWebExchange exchange) {
         final SoulContext soulContext = exchange.getAttribute(Constants.CONTEXT);
         assert soulContext != null;
@@ -356,7 +356,7 @@ public class WebClientResponsePlugin implements SoulPlugin {
         return PluginEnum.RESPONSE.getCode();
     }
 
-    @Override // rpc 是 http 或 rpc是 SPRING_CLOUD 时 不跳过
+    @Override // rpcType 是 http 或 rpcType是 SPRING_CLOUD 时 不跳过
     public Boolean skip(final ServerWebExchange exchange) {
         final SoulContext soulContext = exchange.getAttribute(Constants.CONTEXT);
         assert soulContext != null;
