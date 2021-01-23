@@ -1,5 +1,5 @@
 ---
-title: soul学习——04网关启动
+title: soul学习04——网关启动
 date: 2021/1/18 11:06:10
 categories:
 - soul

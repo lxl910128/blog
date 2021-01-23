@@ -1,5 +1,5 @@
 ---
-title: soul学习——02插件测试
+title: soul学习02——插件测试
 date: 2021/1/16 1:01:10
 categories:
 - soul

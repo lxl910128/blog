@@ -1,5 +1,5 @@
 ---
-title: soul学习——06soul插件处理逻辑
+title: soul学习06——soul插件处理逻辑
 date: 2021/1/20 21:16:10
 categories:
 - soul

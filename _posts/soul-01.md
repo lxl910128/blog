@@ -1,5 +1,5 @@
 ---
-title: soul学习——01环境搭建
+title: soul学习01——环境搭建
 date: 2021/1/14 22:00:10
 categories:
 - soul

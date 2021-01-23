@@ -1,5 +1,5 @@
 ---
-title: soul学习——05soul核心处理链
+title: soul学习05——soul核心处理链
 date: 2021/1/20 9:16:10
 categories:
 - soul
