@@ -1,5 +1,5 @@
 ---
-title: soul学习10——数据同步主流程(下)
+title: soul学习11—数据同步主流程(下)
 date: 2021/1/26 23:43:10
 categories:
 - soul
@@ -168,7 +168,7 @@ public class DataChangedEventDispatcher implements ApplicationListener<DataChang
 
 # ApplicationListener
 
-通过翻阅资料我们父发现，ApplicationListener是Spring事件机制的一部分，与抽象类ApplicationEvent类配合来完成ApplicationContext的事件机制。如果容器中存在ApplicationListener的Bean，当ApplicationContext调用publishEvent方法时，对应的Bean会被触发。这一过程是典型的观察者模式的实现。在soul中`DataChangedEventDispatcher`就是`DataChangedEvent`事件的观察，`DataChangedEvent`不出所料的继承了`ApplicationEvent`。
+通过翻阅资料我们发现，ApplicationListener是Spring事件机制的一部分，与抽象类ApplicationEvent类配合来完成ApplicationContext的事件机制。如果容器中存在ApplicationListener的Bean，当ApplicationContext调用publishEvent方法时，对应的Bean会被触发。这一过程是典型的观察者模式的实现。在soul中`DataChangedEventDispatcher`就是`DataChangedEvent`事件的观察，`DataChangedEvent`不出所料的继承了`ApplicationEvent`。
 
 再接着看就很简单了，以`metaDataService`中的`delete`方法来举例，该方法在接收到`POST  /meta-data/batchDeleted`时被调用，源码如下：
 
