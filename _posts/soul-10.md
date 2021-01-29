@@ -37,7 +37,7 @@ SyncDataService仅仅是为了标记各个数据同步服务，因为该接口�
 
 # PluginDataSubscriber
 
-我们先看看在soul网关订阅者接收到时间通知都做了哪些主要操作。PluginDataSubscriber主要有以下方法：
+我们先看看在soul网关订阅者接收到事件通知都做了哪些主要操作。PluginDataSubscriber主要有以下方法：
 
 1.  void onSubscribe(PluginData pluginData)，更新PluginData的逻辑
 2.  void unSubscribe(PluginData pluginData)，删除PluginData的逻辑

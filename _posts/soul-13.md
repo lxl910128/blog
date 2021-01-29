@@ -287,7 +287,7 @@ public class ZookeeperDataChangedListener implements DataChangedListener {
     // 删除节点
     private void deleteZkPath(final String path) {
         if (zkClient.exists(path)) {
-            zkClient.delete(path);
+            zkClient.delete(path);  
         }
     }
     // 递归删目录及其子目录
@@ -303,4 +303,4 @@ admin主要负责数据变更时向zk写或删数据，逻辑简单清晰。
 
 # 总结
 
-整体老说zk同步数据逻辑非常清晰，这也可以看出zk非常适合干这样的工作的，在集群环境下同步meta信息。从中我学到了如果向监控数据新增可以在父节点关注子节点的变化，其他情况可以关注某个目录下数据的修改或删除。
+整体来说zk同步数据逻辑非常清晰，这也可以看出zk非常适合干这样的工作的，在集群环境下同步meta信息。从中我学到了如果向监控数据新增可以在父节点关注子节点的变化，其他情况可以关注某个目录下数据的修改或删除。
