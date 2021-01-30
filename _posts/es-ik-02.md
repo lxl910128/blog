@@ -12,7 +12,7 @@ keywords:
 - elasticsearch, plugin, ik, 插件, IKSegmenter, AnalyzeContext, LetterSegmenter, IKArbitrator
 ---
 # 概述
-本系列主要从从源码的角度介绍es-IK插件，本文主要从源码层面介绍ik分词的主线逻辑暂不涉及中文分词的逻辑。
+本系列主要从源码的角度介绍es-IK插件，本文主要从源码层面介绍ik分词的主线逻辑暂不涉及中文分词的逻辑。
 
 <!-- more -->
 
