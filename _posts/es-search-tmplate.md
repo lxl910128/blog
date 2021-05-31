@@ -77,7 +77,7 @@ GET kibana_sample_data_flights/_search
 
 其次，搜索模板使用的语法是`Mustache`
 
-> 更多的关于该种脚本语言的介绍以及功能请查看其官方[文档](https://mustache.github.io/mustache.5.html):[__https://mustache.github.io/mustache.5.html__](https://mustache.github.io/mustache.5.html)
+> 更多的关于该种脚本语言的介绍以及功能请查看其官方[文档](https://mustache.github.io/mustache.5.html)
 
 最后，模板搜索属于 Elasticsearch 中 Script 功能的扩展， Script 的限定及用法基本都适用于模板搜索。比如，集群关于 Script 的配置也会影响模板搜索，配置项`script.allowed_types`可规范模板搜索接受的类型（ inline / stored / both ），`script.allowed_contexts`也会限制模板搜索可进行的操作。
 
