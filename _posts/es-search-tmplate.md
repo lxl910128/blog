@@ -108,7 +108,7 @@ POST _scripts/<templateId>  # 1
 1. 向`_scripts/<templateId>`发送 POST 请求来创建搜索模板，其中`<templateId>`是你为该模板设置的 ID，搜索时会用到该 ID
 
 2. lang 参数配置的是搜索模板使用的脚本语言为`mustache`
-3. source 参数配置的是搜索模板的具体内容，该部分的格式参照 Elasticsearch 搜索的请求 body，需要搜索时填充的值使用`mustache`语法，配置占位符即可，比如本例中的占位符就是{% raw %}{{FlightNum}}{% endraw %}
+3. source 参数配置的是搜索模板的具体内容，该部分的格式参照 Elasticsearch 搜索的请求 body，需要搜索时填充的值使用`mustache`语法，配置占位符即可，比如本例中的占位符就是{% raw %} {{FlightNum}} {% endraw %}
 ## 查看
 
 当我们想查看之前创建的模板内容，或者验证某个 ID 的模板是否存在时，可以向`_scripts/<templateId>`发送 GET 请求来获取模板的具体内容。
@@ -282,7 +282,7 @@ GET _render/template # 1
 
 模板语言 mustache 有许多功能，这里再介绍几个比较常见的。
 
-比如我们使用占位符替换的不是一个字符串，而是一个对象或数组对象，那么我们可以用{% raw %}{{#toJson}}{{/toJson}}{% endraw %}来实现
+比如我们使用占位符替换的不是一个字符串，而是一个对象或数组对象，那么我们可以用{% raw %} {{#toJson}}{{/toJson}} {% endraw %}来实现
 
 具体如下：
 
@@ -310,7 +310,7 @@ GET _render/template
 }
 ```
 
-在配置模板时，我们将`FlightNum`的 value 配置为{% raw %}{{#toJson}}FlightNum{{/toJson}}{% endraw %}，即表示占位符`FlightNum`是一个对象
+在配置模板时，我们将`FlightNum`的 value 配置为{% raw %} {{#toJson}}FlightNum{{/toJson}} {% endraw %}，即表示占位符`FlightNum`是一个对象
 
 在配置 params 时，我们将 FlightNum 的值设置为一个 JSON 对象`{ "value":"9HY9SWR"}`
 
@@ -356,7 +356,7 @@ GET _render/template
 
 第一个模板使用{% raw %}{{#join delimiter='||'}}{{/join delimiter='||'}}{% endraw %}设置了数组合并的分割字符为 "||"，传参时`FlightNums`配置的为`["9HY9SWR","adf2c1"]`，而生成的则是 #4 处的`9HY9SWR||adf2c1`
 
-第二个模板使用`{{^DestCountry}}AU{{/DestCountry}}`设置了占位符 DestCountry 的默认值为 AU，这样我们在params中并未配置 DestCountry 的值，但生成的 #5 处自动用 AU 替换了占位符
+第二个模板使用{% raw %} {{^DestCountry}}AU{{/DestCountry}} {% endraw %}设置了占位符 DestCountry 的默认值为 AU，这样我们在params中并未配置 DestCountry 的值，但生成的 #5 处自动用 AU 替换了占位符
 
 第三个模板我们用{% raw %}{{#url}}{{/url}}{% endraw %}声明了此处是一个 URL，需要进行转义，则在 #6 处配置的`http://www.baidu.com`变为了`http%3A%2F%2Fwww.baidu.com`
 
