@@ -119,6 +119,7 @@ POST _scripts/<templateId>  # 1
 
 ```json
 GET _scripts/<templateId>  # 1
+{% raw %}
 {
   "_id" : "testSearchTemplate",  # 2
   "found" : true,  # 3
@@ -130,6 +131,7 @@ GET _scripts/<templateId>  # 1
     }
   }
 }
+{% endraw %}
 ```
 
 1. 请求的 path 为`_scripts/<templateId>`，其中`<templateId>`为你要查询的模板 Id，请求类型为 GET
@@ -162,6 +164,7 @@ DELETE _scripts/<templateId>   #1
 
 ```json
 GET <index>/_search/template?<query_parameters> #1
+{% raw %}
 {
   "source": """{"query": {"term": {"FlightNum": {"value": "{{FlightNum}}"}}}}""",  #2
   "id": "testSearchTemplate", # 3
@@ -171,6 +174,7 @@ GET <index>/_search/template?<query_parameters> #1
   "profile": true, # 5
   "explain": true  # 6
 }
+{% endraw %}
 ```
 
 模板搜索发送的地址为`<index>/_search/template`，与搜索一样`<index>`处为选填参数，你可以指定搜索的索引，不指定则表示搜索全部索引。
@@ -286,7 +290,11 @@ GET _render/template # 1
 
 模板语言 mustache 有许多功能，这里再介绍几个比较常见的。
 
-比如我们使用占位符替换的不是一个字符串，而是一个对象或数组对象，那么我们可以用`{{#toJson}}{{/toJson}}`来实现，
+{% raw %}
+
+比如我们使用占位符替换的不是一个字符串，而是一个对象或数组对象，那么我们可以用`{{#toJson}}{{/toJson}}`来实现
+
+{% endraw %}
 
 具体如下：
 
