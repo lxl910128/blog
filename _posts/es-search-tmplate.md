@@ -106,7 +106,6 @@ POST _scripts/<templateId>  # 1
 ```
 
 1. 向`_scripts/<templateId>`发送 POST 请求来创建搜索模板，其中`<templateId>`是你为该模板设置的 ID，搜索时会用到该 ID
-
 2. lang 参数配置的是搜索模板使用的脚本语言为`mustache`
 3. source 参数配置的是搜索模板的具体内容，该部分的格式参照 Elasticsearch 搜索的请求 body，需要搜索时填充的值使用`mustache`语法，配置占位符即可，比如本例中的占位符就是{% raw %} {{FlightNum}} {% endraw %}
 ## 查看
@@ -131,13 +130,9 @@ GET _scripts/<templateId>  # 1
 ```
 
 1. 请求的 path 为`_scripts/<templateId>`，其中`<templateId>`为你要查询的模板 Id，请求类型为 GET
-
 2. 返回的 body 中，_id 属性再次表明此次查询的模板 ID，本示例查询的是之前创建的`testSearchTemplate`模板
-
 3. found 属性表明此次查询是否查到结果，如果模板 ID 存在则此值为 true，反之为 false
-
 4. script 就是该搜索模板的具体内容与保存时相同。核心有 lang 属性表示脚本语法，source 属性存放脚本具体内容
-
 5. script 属性中的 Options 属性是非必要其它脚本属性，默认会有 content_type 属性，该属性保存查询时 http 请求的`content-type` ，默认为`application/json; charset=UTF-8`
 
 ## 删除
@@ -176,33 +171,19 @@ GET <index>/_search/template?<query_parameters> #1
 因为本质上还是属于搜索的范畴，所以一些搜索参数在模板搜索是也可以使用，比如：
 
 - scroll（可选，时长）：表示本搜索需要支持游标搜索，游标过期时间为配置值
-
 - ccs_minimize_roundtrips(可选，布尔值)：如果为 true 则在跨集群搜索时最小化集群间交互。默认为 true
-
 - expand_wildcards（可选，字符串）：表示索引通配符作用的范围，可配置为全部（all）、打开索引（open）、关闭索引（closed）、隐藏索引（hidden，需要与open或closed结合使用）、不允许通配符（none）
-
 - explain（可选，布尔值）：表示返回结果是否带计算得分的详细信息，默认是false
-
 - ignore_throttled（可选，布尔值）：如果为 true 则表示查询忽略被限制的索引，被限制的索引一般指被冻结（freeze）的索引，该值默认是 true
-
 - ignore_unavailable（可选，布尔值）：如果为 true 则表示关闭的索引不在搜索范围内，默认值为 true
-
 - preference（可选，字符串）：指定执行该操作的节点或分片，默认是随机的
-
 - rest_total_hits_as_int（可选，布尔值）：如果为 true 则 hits.total 将会是个数值而非一个对象，默认为 false
-
 - routing(可选, 字符串)：配置搜索执行的路由
-
 - search_type（可选，字符串）：这是搜索的类型，可选值有：query_then_fetch、dfs_query_then_fetch
-
 - source 字段：用于配置搜索模板，该字段与 ID 字段冲突只能二选一，使用 source 表示不使用保存的模板而使用本模板
-
 - id 字段：表示本次查询使用的搜索模板 ID，该字段与 source 字 段冲突只能二选一
-
 - params 字段：配置的 key-value 值将替换模板中的占位符执行搜索
-
 - profile 字段：是可选字段，表示返回结果中是否有 Elasticsearch 执行搜索的一些元信息
-
 - explain 字段：是可选字段，与 http 中搜索参数配置的 explain 含义一样，表示结果是否带计算得分的详细信息
 
 上述搜索返回结果如下：
@@ -273,11 +254,8 @@ GET _render/template # 1
 ```
 
 1. 向`_render/template`发送 GET 请求来验证模板是否正确
-
 2. source 字段为要验证的搜索模板，该字段可以省略，如果省略需要在 path 处指定模板iID，比如`_render/template/testSearchTemplate`
-
 3. params 字段为模板使用的参数
-
 4. 此 JSON 就是该请求的返回，`template_output`字段就是在使用此`params`下搜索模板生成的查询语句
 
 模板语言 mustache 有许多功能，这里再介绍几个比较常见的。

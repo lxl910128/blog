@@ -49,86 +49,82 @@ Elasticsearch 在这方面做的工作主要体现是索引模板（Index templa
 PUT /_component_template/ct1             # 1
 {
   "template": {
-    "settings": {
-      "index.number_of_shards": 2       
-    }
+    "settings": {
+      "index.number_of_shards": 2       
+    }
   }
 }
 # 创建1个组件模板ct2
-PUT /_component_template/ct2             # 2
+PUT /_component_template/ct2             # 2
 {
   "template": {
-    "settings": {
-      "index.number_of_replicas": 0     
-    },
-    "mappings": {
-      "properties": {
-        "@timestamp": {
-          "type": "date"
-        }
-      }
-    }
+    "settings": {
+      "index.number_of_replicas": 0     
+    },
+    "mappings": {
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        }
+      }
+    }
   }
 }
 # 创建1个索引模板 final-template
-PUT /_index_template/final-template      # 3
+PUT /_index_template/final-template      # 3
 {
   "index_patterns": ["my-index-*"],
-  "composed_of": ["ct1", "ct2"],         
+  "composed_of": ["ct1", "ct2"],         
   "priority": 5,
   "template":{
   "settings": {
-      "index.number_of_replicas": 1
-    },
-    "mappings": {
-      "properties": {
-        "name": {
-          "type": "keyword"
-        }
-      }
-    }
+      "index.number_of_replicas": 1
+    },
+    "mappings": {
+      "properties": {
+        "name": {
+          "type": "keyword"
+        }
+      }
+    }
   }
 }
 # 验证创建名为 my-index-00000 的索引使用的配置是如何
-POST /_index_template/_simulate_index/my-index-00000   # 4
+POST /_index_template/_simulate_index/my-index-00000   # 4
 #返回
 {
-  "template" : {    # 引用模板中的配置有settings、mappings、aliase
-    "settings" : {
-      "index" : {
-        "number_of_shards" : "2",
-        "number_of_replicas" : "1"
-      }
-    },
-    "mappings" : {
-      "properties" : {
-        "@timestamp" : {
-          "type" : "date"
-        },
-        "name" : {
-          "type" : "keyword"
-        }
-      }
-    },
-    "aliases" : { }
-   },
-   "overlapping" : [  # 5
-     {
-       "name" : "test-template",
-       "index_patterns" : ["my-*"]
-    }
-   ]
+  "template" : {    # 引用模板中的配置有settings、mappings、aliase
+    "settings" : {
+      "index" : {
+        "number_of_shards" : "2",
+        "number_of_replicas" : "1"
+      }
+    },
+    "mappings" : {
+      "properties" : {
+        "@timestamp" : {
+          "type" : "date"
+        },
+        "name" : {
+          "type" : "keyword"
+        }
+      }
+    },
+    "aliases" : { }
+   },
+   "overlapping" : [  # 5
+     {
+       "name" : "test-template",
+       "index_patterns" : ["my-*"]
+    }
+   ]
 }
 ```
 
 1. 在 #1 处创建了 1 个名为`cr1`的组件模板，该模板设置了索引分片数为2
-
 2. 在 #2 处创建了 1 个名为`cr2`的组件模板，该模板设置了索引由1个`@timestamp`属性，并且副本数是0
-
 3. 在 #3 处创建了1个名为`final-template`的索引模板，它适用于所有以`my-index-`开头的索引
-
 4. 在 #4 处向`/_index_template/_simulate_index/my-index-00000`发送 POST 请求，测试创建名为`my-index-00000`的索引，下面的 JSON 是使用索引模板的配置，可以看出 template 字段是组件 cr1、cr2 以及索引模板 final-template 全部配置的聚合。
-
 5. #5处的`overlapping`字段表示忽略了名为`test-template`模板的配置。
 
 第二种模拟 API 使用范例如下：
@@ -142,51 +138,51 @@ POST /_index_template/_simulate/<index-template> #1
   "composed_of": ["ct1","ct2"],
   "priority": 5,
   "template": {
-    "settings": {
-      "index.number_of_replicas": 1
-    },
-    "mappings": {
-      "properties": {
-        "name": {
-          "type": "keyword"
-        }
-      }
-    }
+    "settings": {
+      "index.number_of_replicas": 1
+    },
+    "mappings": {
+      "properties": {
+        "name": {
+          "type": "keyword"
+        }
+      }
+    }
   }
 }
 # 返回
-{    # 3
+{    # 3
   "template" : {
-    "settings" : {
-      "index" : {
-        "number_of_shards" : "2",
-        "number_of_replicas" : "1"
-      }
-    },
-    "mappings" : {
-      "properties" : {
-        "@timestamp" : {
-          "type" : "date"
-        },
-        "name" : {
-          "type" : "keyword"
-        }
-      }
-    },
-    "aliases" : { }
+    "settings" : {
+      "index" : {
+        "number_of_shards" : "2",
+        "number_of_replicas" : "1"
+      }
+    },
+    "mappings" : {
+      "properties" : {
+        "@timestamp" : {
+          "type" : "date"
+        },
+        "name" : {
+          "type" : "keyword"
+        }
+      }
+    },
+    "aliases" : { }
   },
   "overlapping" : [
-    {
-     "name" : "test-template",
-     "index_patterns" : ["my-*"]
-    }
+    {
+     "name" : "test-template",
+     "index_patterns" : ["my-*"]
+    }
   ]
 }
 ```
 
-1. \#1 向`/_index_template/_simulate/<index-template>`发送 POST 请求，其中`<index-template>`为自定义索引模板的名词，该模板并不会实际创建
-2. \#2 处是请求的 body，与创建一个新版索引模板个格式完全一样，后续详细介绍，目前只需要知道它引用了 cr1 和 cr2 两个组件模
-3. \#3 处为请求返回的 body，可以看出内容是组件模板 cr1、cr2 以及请求 body3 个配置的组合。
+1. #1 向`/_index_template/_simulate/<index-template>`发送 POST 请求，其中`<index-template>`为自定义索引模板的名词，该模板并不会实际创建
+2. #2 处是请求的 body，与创建一个新版索引模板个格式完全一样，后续详细介绍，目前只需要知道它引用了 cr1 和 cr2 两个组件模
+3. #3 处为请求返回的 body，可以看出内容是组件模板 cr1、cr2 以及请求 body3 个配置的组合。
 
 ## 创建
 
@@ -202,45 +198,40 @@ POST /_index_template/_simulate/<index-template> #1
 
 ```json
 # 创建组件模板
-PUT /_component_template/template_1?create=true&master_timeout=30s   #1
+PUT /_component_template/template_1?create=true&master_timeout=30s   #1
 {
   "template": {  # 2
-    "settings": {
-      "number_of_shards": 1
-    },
-    "mappings": {
-      "_source": {
-        "enabled": false
-      },
-      "properties": {
-        "name": {
-          "type": "keyword"
-        }
-      }
-    },
-    "aliases": {
-      "test-index": {}
-    }
+    "settings": {
+      "number_of_shards": 1
+    },
+    "mappings": {
+      "_source": {
+        "enabled": false
+      },
+      "properties": {
+        "name": {
+          "type": "keyword"
+        }
+      }
+    },
+    "aliases": {
+      "test-index": {}
+    }
   },
-  "version": 1,    #3
-  "_meta": {       #4
-    "description1": "for test",
-    "description2": "create by phoenix"
+  "version": 1,    #3
+  "_meta": {       #4
+    "description1": "for test",
+    "description2": "create by phoenix"
   }
 }
 ```
 
-1. \#1 处向`/_component_template/template_1`发送 PUT 请求创建一个名为`template_1`的组件模板，模板名可以任意替换，需要注意的是，Elasticsearch 中预置有6个组件模板：`logs-mappings`、`logs-settings`、`metrics-mappings`、`metrics-settings`、`synthetics-mapping`、`synthetics-settings`，建议不要覆盖。同时 url 中还包含2个可选的查询参数`create`和`master_timeout`
-
+1. #1 处向`/_component_template/template_1`发送 PUT 请求创建一个名为`template_1`的组件模板，模板名可以任意替换，需要注意的是，Elasticsearch 中预置有6个组件模板：`logs-mappings`、`logs-settings`、`metrics-mappings`、`metrics-settings`、`synthetics-mapping`、`synthetics-settings`，建议不要覆盖。同时 url 中还包含2个可选的查询参数`create`和`master_timeout`
    1. `create`，表示此次请求是否是创建请求，如果为 true 则系统中如果已有同名的会报错，默认为 false，表示请求可以是创建也可能是更新请求
-
    2. `master_timeout`，表示可以容忍的连接 Elasticsearch 主节点的时间，默认是30s，如果超时则请求报错
-
-2. \#2 处`template`的内容是对索引的设置，主要有别名，映射和配置，在本例中配置了索引分片数是 1，`_source`不用保存，索引有名为`name`的属性，类型是 keyword，同时索引别名有`test-index`。
-
-3. \#3 处是用户指定的组件模板的版本号，为了方便外部管理，此为可选项，默认不会为组件模板增加版本号
-
-4. \#4 处是用户为组件模板设置的 meta 信息，该对象字段可随意配置，但不要设置的过大。该字段也是可选的
+2. #2 处`template`的内容是对索引的设置，主要有别名，映射和配置，在本例中配置了索引分片数是 1，`_source`不用保存，索引有名为`name`的属性，类型是 keyword，同时索引别名有`test-index`。
+3. #3 处是用户指定的组件模板的版本号，为了方便外部管理，此为可选项，默认不会为组件模板增加版本号
+4. #4 处是用户为组件模板设置的 meta 信息，该对象字段可随意配置，但不要设置的过大。该字段也是可选的
 
 ### 索引模板的创建
 
@@ -251,56 +242,56 @@ PUT /_component_template/template_1?create=true&master_timeout=30s   #1
 ```json
 PUT /_index_template/test_template?create=false&master_timeout=30s #1
 {
-  "index_patterns" : ["te*"],    #2
-  "priority" : 1,   #3 
+  "index_patterns" : ["te*"],    #2
+  "priority" : 1,   #3 
   "composed_of": ["template_1"], #4
-  "template": {     #5
-    "settings" : {
-      "number_of_shards" : 2
-    }
+  "template": {     #5
+    "settings" : {
+      "number_of_shards" : 2
+    }
   },
-  "version": 2,   #6
-  "_meta": {      #7
-    "user": "phoenix",
-    "time": "2021/05/06"
+  "version": 2,   #6
+  "_meta": {      #7
+    "user": "phoenix",
+    "time": "2021/05/06"
   }
 }
 # 测试模板
-POST /_index_template/_simulate_index/test    #8
+POST /_index_template/_simulate_index/test    #8
 {
   "template" : {
-    "settings" : {
-      "index" : {
-        "number_of_shards" : "2"  # 索引模板覆盖了组件模板的配置
-      }
-    },
-    "mappings" : {
-      "_source" : {             # 使用组件模板的配置
-        "enabled" : false
-      },
-      "properties" : {
-        "name" : {        # 使用组件模板的配置
-          "type" : "keyword"
-        }
-      }
-    },
-    "aliases" : {
-      "test-index" : { }     # 使用组件模板的配置
-    }
+    "settings" : {
+      "index" : {
+        "number_of_shards" : "2"  # 索引模板覆盖了组件模板的配置
+      }
+    },
+    "mappings" : {
+      "_source" : {             # 使用组件模板的配置
+        "enabled" : false
+      },
+      "properties" : {
+        "name" : {        # 使用组件模板的配置
+          "type" : "keyword"
+        }
+      }
+    },
+    "aliases" : {
+      "test-index" : { }     # 使用组件模板的配置
+    }
   }
 }
 ```
 
-1. \#1 处向`/_index_template/test_template`发送 PUT 请求创建索引模板，模板名称为`test_template`，名称可任意填写，与组件模板相同，有2个可选的查询参数：
+1. #1 处向`/_index_template/test_template`发送 PUT 请求创建索引模板，模板名称为`test_template`，名称可任意填写，与组件模板相同，有2个可选的查询参数：
    1. `create`，表示此次请求是否是创建请求，如果为 true 则系统中如果已有同名模板则会报错，默认为 false，表示请求可以是创建也可能是更新请求
    2. `master_timeout`，表示可以容忍的连接 Elasticsearch 主节点的时间，默认是30s，如果超时则请求报错
-2. \#2 处`index_patterns`字段用于设置匹配索引的规则，目前仅支持使用索引名称匹配，支持`*`号作为通配符，该字段是必填字段。需要注意 Elasticsearch 自带了3种匹配规则的索引模板：`logs-*-*`、`metrics-*-*`、`synthetics-*-*`，建议不要做相同配置。
-3. \#3 处`priority`字段配置的是模板权重，当 1 个索引名符合多个模板的匹配规则时， 会使用该值最大的做为最终使用的模板，此值默认为 0，Elasticsearch 自带的模板此值是100。
-4. \#4 处`composed_of`字段用于配置索引模板引用的组件模板，此处引用的组件模板配置自动会增加到该模板中。此例我们引用了之前创建的`template_1`组件。
-5. \#5 处`template`的内容是对索引的设置。
-6. \#6 处是用户指定的索引模板的版本号，为了方便外部管理，此为可选项，默认不会为组件模板增加版本号
-7. \#7 处是用户为索引模板设置的 Meta 信息，该对象字段可随意配置，但不要设置的过大。该字段也是可选的
-8. \#8 处用模拟 API 创建名为`test`的索引，我们发现返回的模板包含了模板`test_template`和组件`template_1`的所有配置
+2. #2 处`index_patterns`字段用于设置匹配索引的规则，目前仅支持使用索引名称匹配，支持`*`号作为通配符，该字段是必填字段。需要注意 Elasticsearch 自带了3种匹配规则的索引模板：`logs-*-*`、`metrics-*-*`、`synthetics-*-*`，建议不要做相同配置。
+3. #3 处`priority`字段配置的是模板权重，当 1 个索引名符合多个模板的匹配规则时， 会使用该值最大的做为最终使用的模板，此值默认为 0，Elasticsearch 自带的模板此值是100。
+4. #4 处`composed_of`字段用于配置索引模板引用的组件模板，此处引用的组件模板配置自动会增加到该模板中。此例我们引用了之前创建的`template_1`组件。
+5. #5 处`template`的内容是对索引的设置。
+6. #6 处是用户指定的索引模板的版本号，为了方便外部管理，此为可选项，默认不会为组件模板增加版本号
+7. #7 处是用户为索引模板设置的 Meta 信息，该对象字段可随意配置，但不要设置的过大。该字段也是可选的
+8. #8 处用模拟 API 创建名为`test`的索引，我们发现返回的模板包含了模板`test_template`和组件`template_1`的所有配置
 
 ## 查看
 
@@ -316,22 +307,16 @@ GET /_index_template #6
 ```
 
 1. #1 是查看名为`template_1`的组件模板
-
-1. #2 是查看名字以`template_`开头的所有组件模板
-
-1. #3 是查看所有组件模板，通过该请求我们可以发现 Elasticsearch 默认创建了很多组件模板，使用时应尽量避免冲突
-
-1. #4 是查看名字为`test_template`的索引模板
-
-1. #5 是查看名字以`test_`开头的所有索引模板
-
-1. #6 是查看所有索引模板，通过该请求我们可以发现 Elasticsearch 默认创建了很多索引模板，使用时应尽量避免冲突
+2. #2 是查看名字以`template_`开头的所有组件模板
+3. #3 是查看所有组件模板，通过该请求我们可以发现 Elasticsearch 默认创建了很多组件模板，使用时应尽量避免冲突
+4. #4 是查看名字为`test_template`的索引模板
+5. #5 是查看名字以`test_`开头的所有索引模板
+6. #6 是查看所有索引模板，通过该请求我们可以发现 Elasticsearch 默认创建了很多索引模板，使用时应尽量避免冲突
 
 如 #1 所示，上述所有请求都可以增加 2 个可选的查询参数：
 
 1. `local`，如果为`true`模板的配置仅从本地节点中获取，默认为`false`表示此次查询结果是`master`节点返回的
-
-1. `master_timeout`，表示可以容忍的连接elasticsearch主节点的时间，默认是30s，如果超时则请求报错
+2. `master_timeout`，表示可以容忍的连接elasticsearch主节点的时间，默认是30s，如果超时则请求报错
 
 ## 使用
 
@@ -473,18 +458,14 @@ DELETE  /_index_template/test_*  #4
 ```
 
 1. #1 表示删除名为`template_1`的组件模板
-
-1. #2 表示删除名字以`template_`开头的组件模板
-
-1. #3 表示删除名为`test_template`的索引模板
-
-1. #3 表示删除名字以`test_`开头的索引模板
+2. #2 表示删除名字以`template_`开头的组件模板
+3. #3 表示删除名为`test_template`的索引模板
+4. #3 表示删除名字以`test_`开头的索引模板
 
 如 #1 所示，上述所有请求都可以增加 2 个可选的查询参数：
 
 1. `timeout`，表示可以容忍的等待响应时间，默认是 30s，如果超时则请求报错
-
-1. `master_timeout`，表示可以容忍的连接 Elasticsearch 主节点的时间，默认是 30s，如果超时则请求报错
+2. `master_timeout`，表示可以容忍的连接 Elasticsearch 主节点的时间，默认是 30s，如果超时则请求报错
 
 # 老版索引模板
 
@@ -524,28 +505,17 @@ PUT /_template/old_template?order=1&create=false&master_timeout=30s  # 1
 ```
 
 1. #1 处向`/_template/old_template`发送PUT请求创建或索引模板，模板名称为`old_template`，名称可任意填写，该请求有 4 个可选的查询参数：
-
     1. `create`，表示此次请求是否是创建请求，如果为 true 则系统中如果已有同名模板会报错，默认为 false，表示请求可以是创建也可能是更新请求
-
-    1. `master_timeout`，表示可以容忍的连接 Elasticsearch 主节点的时间，默认是30s，如果超时则请求报错
-
-    1. `order`，该变量接受一个整数，表示模板的优先级，数字越大优先级越高，相关配置越可能被实际使用，强烈建议每个模板都根据实际情况配置该值，不要使用默认值。
-
-1. #2 处`index_patterns`字段用于配置匹配索引的规则，目前仅支持使用索引名称匹配，支持`*`号作为通配符，该字段是必填字段，可配置多个值表示”或“的关系。
-
-1. #3 处`settings`字段用于配置索引属性。
-
+    2. `master_timeout`，表示可以容忍的连接 Elasticsearch 主节点的时间，默认是30s，如果超时则请求报错
+    3. `order`，该变量接受一个整数，表示模板的优先级，数字越大优先级越高，相关配置越可能被实际使用，强烈建议每个模板都根据实际情况配置该值，不要使用默认值。
+2. #2 处`index_patterns`字段用于配置匹配索引的规则，目前仅支持使用索引名称匹配，支持`*`号作为通配符，该字段是必填字段，可配置多个值表示”或“的关系。
+3. #3 处`settings`字段用于配置索引属性。
 > 具体规则详见文档:[__https://www.elastic.co/guide/en/elasticsearch/reference/7.10/index-modules.html#index-modules-settings__](https://www.elastic.co/guide/en/elasticsearch/reference/7.10/index-modules.html#index-modules-settings)
-
-1. #4 处`aliases`字段用于配置索引的别名。
-
+4. #4 处`aliases`字段用于配置索引的别名。
 > 具体规则详见文档:[__https://www.elastic.co/guide/en/elasticsearch/reference/7.10/indices-aliases.html__](https://www.elastic.co/guide/en/elasticsearch/reference/7.10/indices-aliases.html)
-
-1. #5 处`mappings`字段用于配置索引的映射。
-
+5. #5 处`mappings`字段用于配置索引的映射。
 > 具体规则详见文档：[__https://www.elastic.co/guide/en/elasticsearch/reference/7.10/mapping.html__](https://www.elastic.co/guide/en/elasticsearch/reference/7.10/mapping.html)
-
-1. #6 处`version`字段是用户指定的索引模板的版本号，为了方便外部管理，此为可选项，Elasticsearch 默认不会为组件模板增加版本号。
+6. #6 处`version`字段是用户指定的索引模板的版本号，为了方便外部管理，此为可选项，Elasticsearch 默认不会为组件模板增加版本号。
 
 ## 查看
 
@@ -559,20 +529,15 @@ HEAD /_template/old_template  #4
 ```
 
 1. #1 是查看名为`old_template`的索引模板
-
-1. #2 是查看名字以`old_`开头的所有索引模板
-
-1. #3 是查看所有索引模板，通过该请求我们可以发现 Elasticsearch 默认创建了很多组件模板，使用时应尽量避免冲突
-
-1. #4 是验证名为`old_template`的索引模板是否存在，与上面 3 个请求返回模板内容不同，本请求不返回模板内容，以状态码为 200 表示存在，404 表示不存在
+2. #2 是查看名字以`old_`开头的所有索引模板
+3. #3 是查看所有索引模板，通过该请求我们可以发现 Elasticsearch 默认创建了很多组件模板，使用时应尽量避免冲突
+4. #4 是验证名为`old_template`的索引模板是否存在，与上面 3 个请求返回模板内容不同，本请求不返回模板内容，以状态码为 200 表示存在，404 表示不存在
 
 如#1所示，上述所有请求都可以增加 3 个可选的查询参数：
 
 1. `local`，如果为`true`组件模板的配置仅从本地节点中获取，默认为`false`表示此次查询结果是`master`节点返回的
-
-1. `master_timeout`，表示可以容忍的连接 Elasticsearch 主节点的时间，默认是30s，如果超时则请求报错
-
-1. `flat_settings`，表示返回的配置中关于`settings`字段如何展示，如果为 false 则使用标准 JSON 格式展示，默认为 true 表示多级属性会压缩成 1 级属性名，以点分格式展示，比如关于索引分片的设置，如果该变量为 true 则返回为`index.number_of_shards:1`
+2. `master_timeout`，表示可以容忍的连接 Elasticsearch 主节点的时间，默认是30s，如果超时则请求报错
+3. `flat_settings`，表示返回的配置中关于`settings`字段如何展示，如果为 false 则使用标准 JSON 格式展示，默认为 true 表示多级属性会压缩成 1 级属性名，以点分格式展示，比如关于索引分片的设置，如果该变量为 true 则返回为`index.number_of_shards:1`
 
 ## 使用
 
@@ -780,18 +745,12 @@ GET /temp-test
 ```
 
 1. #1 处我们创建了 1 个新版本的索引模板匹配名字，以`template`开头的索引，设置可以动态增加属性并设置别名`new-template`
-
-1. #2 处我们创建了 1 个老版本的索引模板匹配名字，以`temp`开头的索引，设置不动态增加属性并设置别名`old_template_1`
-
-1. #3 处我们创建了 1 个老版本的索引模板匹配名字，以`temp-`开头的索引，设置有新增属性时报错并设置别名`old_template_2`，同时配置`order`为10
-
-1. #4 处我们创建了 1 个名为`template-test`的索引
-
-1. #5 处查看索引`template-test`的配置，该名称会匹配新版`new_template`模板，和老版`old_template_1`模板，根据索引的别名信息，只有新版模板配置的别名可以看出，该索引仅仅应用了`new_template`模板
-
-1. #6 处创建了 1 个名为`temp-test`的索引
-
-1. #7 处查看索引`temp-test`的配置，该名称会匹配老版`old_template_1`和`old_template_2`模板，根据索引的别名信息有`old_template_1`和`old_template_1`可以看出，2 个模板的配置都应用了。通过`dynamic`字段为`strict`我们可以判断该字段使用了`order`较高的模板`old_template_2`的配置
+2. #2 处我们创建了 1 个老版本的索引模板匹配名字，以`temp`开头的索引，设置不动态增加属性并设置别名`old_template_1`
+3. #3 处我们创建了 1 个老版本的索引模板匹配名字，以`temp-`开头的索引，设置有新增属性时报错并设置别名`old_template_2`，同时配置`order`为10
+4. #4 处我们创建了 1 个名为`template-test`的索引
+5. #5 处查看索引`template-test`的配置，该名称会匹配新版`new_template`模板，和老版`old_template_1`模板，根据索引的别名信息，只有新版模板配置的别名可以看出，该索引仅仅应用了`new_template`模板
+6. #6 处创建了 1 个名为`temp-test`的索引
+7. #7 处查看索引`temp-test`的配置，该名称会匹配老版`old_template_1`和`old_template_2`模板，根据索引的别名信息有`old_template_1`和`old_template_1`可以看出，2 个模板的配置都应用了。通过`dynamic`字段为`strict`我们可以判断该字段使用了`order`较高的模板`old_template_2`的配置
 
 ## 删除
 
@@ -803,30 +762,23 @@ DELETE  /_template/old_template*  #2
 ```
 
 1. #1 表示删除名为`old_template_1`的索引模板
+2. #2 表示删除名字以`old_template`开头的索引模板
 
-1. #2 表示删除名字以`old_template`开头的索引模板
-
-1. 如 #1 所示，上述 2 个请求都可以增加 2 个可选的查询参数
+如 #1 所示，上述 2 个请求都可以增加 2 个可选的查询参数
 
 1. `timeout`，表示可以容忍的等待响应时间，默认是 30s，如果超时则请求报错
-
-1. `master_timeout`，表示可以容忍的连接elasticsearch主节点的时间，默认是 30s，如果超时则请求报错
+2. `master_timeout`，表示可以容忍的连接elasticsearch主节点的时间，默认是 30s，如果超时则请求报错
 
 # 注意事项及技巧
 
 目前新老版本的索引模板在7.10版本都可以使用，并且都是通过名称匹配的方式，来决定最后使用的配置，那么在使用的过程中难免会遇到，匹配到多个模板且配置有冲突的情况。下面总结几点规则来介绍，创建索引的最终配置是如何决定的。
 
 1. 如果同时匹配到新老 2 个版本的索引模板，那么使用新版模板。
-
-1. 如果仅匹配到多个新版模板，那么使用`priority`值最高的索引模板。
-
-1. 如果新版模板中配置了多个组件模板，且组件中有配置冲突，那么使用`composed_of`数组中靠后的组件模板的配置。
-
-1. 如果组件模板和索引模板有字段冲突，那么使用索引模板中的配置。
-
-1. 如果仅匹配到多个老版模板，那么最终配置由多个模板共同构成，如果有配置冲突，使用`order`值高的模板的配置。
-
-1. 如果创建索引语句中的配置与索引模板（不管新老版本）冲突，那么使用创建语句中的配置。
+2. 如果仅匹配到多个新版模板，那么使用`priority`值最高的索引模板。
+3. 如果新版模板中配置了多个组件模板，且组件中有配置冲突，那么使用`composed_of`数组中靠后的组件模板的配置。
+4. 如果组件模板和索引模板有字段冲突，那么使用索引模板中的配置。
+5. 如果仅匹配到多个老版模板，那么最终配置由多个模板共同构成，如果有配置冲突，使用`order`值高的模板的配置。
+6. 如果创建索引语句中的配置与索引模板（不管新老版本）冲突，那么使用创建语句中的配置。
 
 索引模板一般和动态映射结合使用，这样可以大大减少创建索引的语句，缩减索引创建频次。配置方式是在`mappings`字段中配置`dynamic_templates`的相关内容。
 

@@ -43,10 +43,8 @@ Elasticsearch 本着让用户使用更方便快捷的原则，针对这个问题
 该配置可以接受以下 3 种选择：
 
 1. ture：默认配置，新字段将会自动加入映射中，并自动推断字段的类型。
-
-1. false：新字段不会增加到映射中，因此不能被搜索，但是内容依然会保存在`_source`中。如无特殊需要建议都配置为 false，这样可以避免写入流程经过 master 节点，从而提高性能。
-
-1. strict：索引文档时如果发现有新字段则报错，整个文档都不会被索引。
+2. false：新字段不会增加到映射中，因此不能被搜索，但是内容依然会保存在`_source`中。如无特殊需要建议都配置为 false，这样可以避免写入流程经过 master 节点，从而提高性能。
+3. strict：索引文档时如果发现有新字段则报错，整个文档都不会被索引。
 
 该配置可以在创建 mapping 时在根层配置，表示对所有属性适用。也可以每个内嵌对象（inner object）中配置，表示仅对该对象适用。
 
@@ -81,10 +79,8 @@ PUT test-dynamic-mapping
 ```
 
 1. #1 处的配置索引`test-dynamic-mapping`整体是不自动增加字段的
-
-1. #2 处对于内嵌对象`person`我们设置它可以自动发现字段
-
-1. #3 处对于内嵌对象`company`我们设置它发现新字段会报错
+2. #2 处对于内嵌对象`person`我们设置它可以自动发现字段
+3. #3 处对于内嵌对象`company`我们设置它发现新字段会报错
 
 ```json
 # 插入文档
@@ -102,8 +98,7 @@ PUT test-dynamic-mapping/_doc/1
 ```
 
 1. 传入文档的根层有个未定义的`school`字段
-
-1. 在 person 对象中增加 age 字段
+2. 在 person 对象中增加 age 字段
 
 ```json
 # 再次查看索引mapping
@@ -146,8 +141,7 @@ GET test-dynamic-mapping
 ```
 
 1. #1 处由于我们对整个 mapping 设置了`dynamic:false`，所以`school`属性没有自动创建
-
-1. 由于内嵌对象`person`的`dynamic:true`，因此自动增加了`sex`属性，该属性派生出 2 个字段索引`person.age`其字段类型是text以及`person.age.keyword`其字段类型是keyword
+2. 由于内嵌对象`person`的`dynamic:true`，因此自动增加了`sex`属性，该属性派生出 2 个字段索引`person.age`其字段类型是text以及`person.age.keyword`其字段类型是keyword
 
 ```json
 # 再次查看索引 mapping
@@ -190,8 +184,7 @@ GET test-dynamic-mapping
 ```
 
 1. 索引新文档时增加`company.company_name`字段
-
-1. 由于`company`对象`dynamic:strict`，所以创建文档的请求返回了 1 个`strict_dynamic_mapping_exception`错误
+2. 由于`company`对象`dynamic:strict`，所以创建文档的请求返回了 1 个`strict_dynamic_mapping_exception`错误
 
 对于JSON 中的字段  遵循以下映射方式发现新属性。
 
@@ -257,18 +250,12 @@ GET test-dynamic-mapping
 ```
 
 1. #1 处在创建索引时设置字符串可以自动识别为数值类型
-
-1. #2 处 date 字段条是符合时间格式的字符串
-
-1. #3 处 float 字段是符合小数格式的字符串
-
-1. #4 处 long 字段是符合整型格式的字符串
-
-1. #5 处 date 字段加入 mapping 并被自动识别成了 date 类型
-
-1. #6 处 float 字段加入 mapping 并被自动识别成了 float 类型
-
-1. #7 处 long 字段加入 mapping 并被自动识别成了 long 类型
+2. #2 处 date 字段条是符合时间格式的字符串
+3. #3 处 float 字段是符合小数格式的字符串
+4. #4 处 long 字段是符合整型格式的字符串
+5. #5 处 date 字段加入 mapping 并被自动识别成了 date 类型
+6. #6 处 float 字段加入 mapping 并被自动识别成了 float 类型
+7. #7 处 long 字段加入 mapping 并被自动识别成了 long 类型
 
 Elasticsearch 识别日期字符串的格式，是可以通过`dynamic_date_formats`来配置。该字段支持使用`y`、`m`、`d`、`h`等字符自定义格式，具体方式与 Java 中`DateTimeFormatter`对象实现的规则相同。
 
@@ -353,10 +340,8 @@ Elasticsearch 允许用户通过3个角度来定义规则：新字段的数据�
 ```
 
 1. #1 处定义了动态模板的名称，每个动态模板都需要配置名字，本例中配置的模板名称为`templateName`
-
-1. #2  处可以使用`match_mapping_type`、`match` 、 `unmatch` 、 `match_pattern`、`path_match`、`path_unmatch`来配置该模板的匹配规则，规则可以是多个，规则之间是`与`的关系
-
-1. #3 处配置的是符合该规则的字段使用的 mapping 配置，此处与正常创建字段相同，主要需要配置`type`，`analyzer`等
+2. #2  处可以使用`match_mapping_type`、`match` 、 `unmatch` 、 `match_pattern`、`path_match`、`path_unmatch`来配置该模板的匹配规则，规则可以是多个，规则之间是`与`的关系
+3. #3 处配置的是符合该规则的字段使用的 mapping 配置，此处与正常创建字段相同，主要需要配置`type`，`analyzer`等
 
 下面我们通过几个例子来说明一下匹配规则中的各个关键字如何使用。
 
@@ -523,10 +508,8 @@ PUT test-dynamic-mapping/_doc/1
 在使用动态模板时，还有以下几点需要注意。
 
 1. 所有`null`值及空数组属于无效值，不会被任何动态模板匹配，在索引文档时，只有字段第一次有有效值时，才会与各动态模板匹配，找出匹配的模板创建新字段。
-
-1. 规则匹配时，按照动态模板配置的顺序依次对比，使用最先匹配成功的模板，这就意味着如果有字段同时符合 2 个动态模板，那么会使用在`dynamic_templates`数组中靠前的那个。每个动态模板的匹配方式至少应包含`match`、`path_match` 、 `match_mapping_type`中的一个，`unmatch`和`path_unmatch`不能单独使用。
-
-1. `mapping`的`dynamic_templates`字段是可以在运行时修改的，每次修改会整体替换`dynamic_templates`的所有值而非追加。
+2. 规则匹配时，按照动态模板配置的顺序依次对比，使用最先匹配成功的模板，这就意味着如果有字段同时符合 2 个动态模板，那么会使用在`dynamic_templates`数组中靠前的那个。每个动态模板的匹配方式至少应包含`match`、`path_match` 、 `match_mapping_type`中的一个，`unmatch`和`path_unmatch`不能单独使用。
+3. `mapping`的`dynamic_templates`字段是可以在运行时修改的，每次修改会整体替换`dynamic_templates`的所有值而非追加。
 
 比如下面的请求就是将映射`test-dynamic-mapping`原来的动态模板配置删除，并配一个名为`newTemplate`的动态模板。
 
