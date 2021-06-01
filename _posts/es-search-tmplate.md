@@ -96,7 +96,7 @@ POST _scripts/<templateId>  # 1
       "query": {
           "term": {
             "FlightNum": {
-              "value": "{{FlightNum}}"  # 可变参数 FlightNum
+              "value": {% raw %} "{{FlightNum}}" {% endraw %}  # 可变参数 FlightNum
             }
           }
         }
@@ -107,10 +107,10 @@ POST _scripts/<templateId>  # 1
 
 1. 向`_scripts/<templateId>`发送 POST 请求来创建搜索模板，其中`<templateId>`是你为该模板设置的 ID，搜索时会用到该 ID
 
-1. lang 参数配置的是搜索模板使用的脚本语言为`mustache`
-
-1. source 参数配置的是搜索模板的具体内容，该部分的格式参照 Elasticsearch 搜索的请求 body，需要搜索时填充的值使用`mustache`语法，配置占位符即可，比如本例中的占位符就是`{{FlightNum}}`
-
+2. lang 参数配置的是搜索模板使用的脚本语言为`mustache`
+   {% raw %}
+3. source 参数配置的是搜索模板的具体内容，该部分的格式参照 Elasticsearch 搜索的请求 body，需要搜索时填充的值使用`mustache`语法，配置占位符即可，比如本例中的占位符就是`{{FlightNum}}`
+   {% endraw %}
 ## 查看
 
 当我们想查看之前创建的模板内容，或者验证某个 ID 的模板是否存在时，可以向`_scripts/<templateId>`发送 GET 请求来获取模板的具体内容。
@@ -134,13 +134,13 @@ GET _scripts/<templateId>  # 1
 
 1. 请求的 path 为`_scripts/<templateId>`，其中`<templateId>`为你要查询的模板 Id，请求类型为 GET
 
-1. 返回的 body 中，_id 属性再次表明此次查询的模板 ID，本示例查询的是之前创建的`testSearchTemplate`模板
+2. 返回的 body 中，_id 属性再次表明此次查询的模板 ID，本示例查询的是之前创建的`testSearchTemplate`模板
 
-1. found 属性表明此次查询是否查到结果，如果模板 ID 存在则此值为 true，反之为 false
+3. found 属性表明此次查询是否查到结果，如果模板 ID 存在则此值为 true，反之为 false
 
-1. script 就是该搜索模板的具体内容与保存时相同。核心有 lang 属性表示脚本语法，source 属性存放脚本具体内容
+4. script 就是该搜索模板的具体内容与保存时相同。核心有 lang 属性表示脚本语法，source 属性存放脚本具体内容
 
-1. script 属性中的 Options 属性是非必要其它脚本属性，默认会有 content_type 属性，该属性保存查询时 http 请求的`content-type` ，默认为`application/json; charset=UTF-8`
+5. script 属性中的 Options 属性是非必要其它脚本属性，默认会有 content_type 属性，该属性保存查询时 http 请求的`content-type` ，默认为`application/json; charset=UTF-8`
 
 ## 删除
 
@@ -254,6 +254,7 @@ GET <index>/_search/template?<query_parameters> #1
 
 ```json
 GET _render/template # 1
+{% raw %}
 {
   "source": """{"query": {"term": {"FlightNum": {"value": "{{FlightNum}}"}}}}""" ,# 2
   "params": { # 3
@@ -272,15 +273,16 @@ GET _render/template # 1
     }
   }
 }
+{% endraw %}
 ```
 
 1. 向`_render/template`发送 GET 请求来验证模板是否正确
 
-1. source 字段为要验证的搜索模板，该字段可以省略，如果省略需要在 path 处指定模板iID，比如`_render/template/testSearchTemplate`
+2. source 字段为要验证的搜索模板，该字段可以省略，如果省略需要在 path 处指定模板iID，比如`_render/template/testSearchTemplate`
 
-1. params 字段为模板使用的参数
+3. params 字段为模板使用的参数
 
-1. 此 JSON 就是该请求的返回，`template_output`字段就是在使用此`params`下搜索模板生成的查询语句
+4. 此 JSON 就是该请求的返回，`template_output`字段就是在使用此`params`下搜索模板生成的查询语句
 
 模板语言 mustache 有许多功能，这里再介绍几个比较常见的。
 
@@ -290,6 +292,7 @@ GET _render/template # 1
 
 ```json
 GET _render/template
+{% raw %}
 {
   "source": """{"query": {"term": {"FlightNum": {{#toJson}}FlightNum{{/toJson}}  }}}""", # 1
   "params": { # 2
@@ -310,8 +313,9 @@ GET _render/template
     }
   }
 }
+{% endraw %}
 ```
-
+{% raw %}
 在配置模板时，我们将`FlightNum`的 value 配置为`{{#toJson}}FlightNum{{/toJson}}`，即表示占位符`FlightNum`是一个对象
 
 在配置 params 时，我们将 FlightNum 的值设置为一个 JSON 对象`{ "value":"9HY9SWR"}`
@@ -321,9 +325,10 @@ GET _render/template
 Mustache 还能在将变量套入模板时做一些处理，比如将数组变量组合成字符串放入模板、设置占位符的默认值，以及对 URL 转码。
 
 示例如下
-
+{% endraw %}
 ```json
 GET _render/template
+{% raw %}
 {
   "source": {
     "query": {
@@ -354,14 +359,15 @@ GET _render/template
     }
   }
 }
+{% endraw %}
 ```
-
+{% raw %}
 第一个模板使用`{{#join delimiter='||'}}{{/join delimiter='||'}}`设置了数组合并的分割字符为 "||"，传参时`FlightNums`配置的为`["9HY9SWR","adf2c1"]`，而生成的则是 #4 处的`9HY9SWR||adf2c1`
 
 第二个模板使用`{{^DestCountry}}AU{{/DestCountry}}`设置了占位符 DestCountry 的默认值为 AU，这样我们在params中并未配置 DestCountry 的值，但生成的 #5 处自动用 AU 替换了占位符
 
 第三个模板我们用`{{#url}}{{/url}}`声明了此处是一个 URL，需要进行转义，则在 #6 处配置的`http://www.baidu.com`变为了`http%3A%2F%2Fwww.baidu.com`
-
+{% endraw %}
 # 鸣谢
 
 本文收录至《Elastic Stack 实战手册》，欢迎和我一起解锁开发者共创书籍，系统学习 Elasticsearch。感谢阿里组织ES百人大战，感谢各位老师及小伙伴的帮助。https://developer.aliyun.com/topic/elasticstack/playbook
