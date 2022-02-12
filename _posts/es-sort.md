@@ -53,7 +53,7 @@ GET _search  // 1. 搜索app是kuaishou的文档并按price、月份、相似度
         "order": "asc", // 3. 排序策略，asc正序，desc倒叙
         "mode": "avg",  // 4. 多值时取平局值,支持：min|max|sum|avg|median
         "missing": "_last",  //5. 如果字段为null排最后,`_first`表示排最前
-        "unmapped_type": "long" // 6. 指定字段类型，避免字段为null是出错
+        "unmapped_type": "long" // 6. 指定字段类型，避免字段为null时出错
       }
     },
     {       // 7.  第二个排序依据，使用脚本计算得出
@@ -188,9 +188,8 @@ PUT my_index
 ```
 
 其中BM25和classic的计算公式大体都是：
-$$
-idf∗tf∗norm∗boots
-$$
+
+![](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/es-score.png)
 
 
 - **idf**：逆向文档频率，表示词在整个文档集合里出现的频率，频次越高，得分**越低**。
@@ -201,20 +200,18 @@ $$
 BM25和classic的主要不同就是idf，tf，norm的计算方式的不同，BM25的具体如下：
 
 - idf：
-  $$
-  \log(1 + \frac {docCount - docFreq + 0.5} { docFreq + 0.5})
-  $$
   
-
+  ![](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/es-bm25-idf.png)
+  
+  
   - docCount：文本总数
   - docFreq：包含该词的文档数
-
-- tfnorm：
-  $$
-  \frac {freq * (k1 + 1)}{freq + k1 * (1 - b + b * \frac {fieldLength} {avgFieldLength})}
-  $$
   
-
+- tfnorm：
+  
+  ![](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/es-bm25-tfnorm.png)
+  
+  
   - BM25中norm和tf在一个公式中
   - k1：可配置的参数，控制着词频对tf上升速度的影响。默认值为 1.2 。值越小词频增加对tf的影响越快，值越大变化越慢。
   - b：可配置参数，控制着字段长归一值所起的作用， 0.0 会禁用归一化， 1.0 会启用完全归一化。默认值为 0.75 。
@@ -225,21 +222,17 @@ BM25和classic的主要不同就是idf，tf，norm的计算方式的不同，BM2
 classic(TF/IDF)相关参数的参数的计算方式：
 
 - idf：﻿
-  $$
-  1+ \log \frac{docCount}{docFreq +1 }
-  $$
   
-
+  ![](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/es-classic-idf.png)
+  
 - tf：
-  $$
-  \sqrt {freq^{2}}
-  $$
   
-
+  ![](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/es-classic-tf.png)
+  
 - norm：
-  $$
-  \frac {1} {\sqrt {fieldLength}}
-  $$
+  
+  ![](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/es-classic-norm.png)
+  
   
 
 BM25作为是classic的升级版。classic默认高频词，如：the、and、这、那、的等停用词在建立索引时已被剔除，就没用考虑词频上线问题。具体而言就是classic会使高频词的得分非常高。究其原因是由于tf是关于出现次数的线性函数，如果这个词出现10次那么根据公式就会乘10。而BM25使词频为5比词频为1的得分有更显著提升，但是词频是20次与词频是1000的得分几乎相同。为什么BM25会有如此效果？主要由于BM25的tfNorm的导数为减函数且无限趋近于0。BM25和classic因词频对得分的影响如下图所示：
@@ -383,9 +376,9 @@ GET /blogposts/post/_search
 ```
 
 这个例子中我们用votes属性修改最终得分，使用log1p函数修饰votes，并设置影响因子为0.1，根据上述查询最终评分计算公式为：
-$$
-new\_score = old\_score + \log(1 + 0.1 * number\_of\_votes)
-$$
+
+![](https://rfc2616.oss-cn-beijing.aliyuncs.com/blog/es-last-score.png)
+
 在field_value_factor中，修饰方式可选的有：none, log, log1p, log2p, ln, ln1p, ln2p, square, sqrt, or reciprocal. 默认是 none即不修改。
 
 第二个例子作为民宿网站的所有者，总会希望让所有商品有曝光的机会。在当前查询下，有相同评分 _score 的文档会每次都以相同次序出现，为了提高展现率，在此引入一些随机性就能保证有相同评分的文档都能有均等相似的展现机率。
