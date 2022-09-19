@@ -1,5 +1,5 @@
 ---
-title: <论文翻译> Goods: Organizing Google’s Datasets
+title: 【论文翻译】 Goods：Organizing Google’s Datasets
 date: 2022/09/19 19:33:10
 categories:
 - 论文
