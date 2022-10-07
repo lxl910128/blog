@@ -9,7 +9,7 @@ categories:
 - 搜索优化
 
   keywords:
-- elasticearch, 包含查询, wildcard, 优化
+- elasticsearch, 包含查询, wildcard, 优化
 ---
 # 摘要
 
